@@ -395,7 +395,8 @@ final class Tools(ws: Workspace):
       s"root: ${ws.root.toAbsolutePath.normalize}",
       s"semanticdb files: ${g.files.size}, documents indexed: ${ix.entries.size}, modules: ${ix.modules.size}",
       s"symbols: ${ix.infos.size}, occurrences: ${ix.occurrenceCount}, built in ${g.buildMillis} ms",
-      s"TASTy: ${ix.spans.loaded} of ${ix.spans.directories} class directories read so far " +
+      s"TASTy: ${ix.spans.loaded} of ${ix.spans.directories} class directories read so far, " +
+        s"${ix.spans.loadedFromDisk} of them from .symdex/tasty " +
         s"(${ix.spans.size} definition spans, ${ix.spans.classes} classes; the rest load on first use)" +
         (if ix.spans.skipped > 0 then s"; ${ix.spans.skipped} classes unreadable without their dependencies (approximate spans there)" else ""),
       s"tool schemas: ${specs.size} tools, ~${Tools.schemaTokens(specs)} tokens per turn " +

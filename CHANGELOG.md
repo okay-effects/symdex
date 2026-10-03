@@ -5,6 +5,14 @@ released as a zip on GitHub) and **sbt-symdex** (the sbt plugin, served from
 GitHub Pages). A plugin release names the symdex release it downloads;
 the plugin's own version may run ahead of it.
 
+## symdex — unreleased
+
+- TASTy spans are saved in `.symdex/tasty`, one file per class directory,
+  and reused by the next process while that module's SemanticDB is
+  unchanged. A cold command-line `callers` goes from 2.2 s to 0.8 s,
+  `members` from 6.0 s to 1.0 s (specs/symdex.md, v0.6). `status` says
+  how many directories came from there.
+
 ## sbt-symdex 0.5.2 — 2026-10-02
 
 - Fix: `symdexIndex` failed at run time ("References to undefined settings

@@ -275,19 +275,33 @@ follows, in a fresh JVM, the machine under load (load average ~25):
 
 So what is worth saving is TASTy's reading, not SemanticDB's.
 
-- [ ] A class directory's spans, once read from TASTy, are written to
+- [x] A class directory's spans, once read from TASTy, are written to
       `.symdex/tasty/`, one file per directory; a later process whose
       SemanticDB for that directory is unchanged reads the file instead
       of TASTy.
-- [ ] Unchanged means the same `.semanticdb` files by count, latest
+- [x] Unchanged means the same `.semanticdb` files by count, latest
       mtime and total size: a compile rewrites at least one, a deleted
       source removes one. Changed, the directory is read from TASTy
       again and its file rewritten. The in-memory check uses the same
       key.
-- [ ] A file that cannot be read (truncated, another format version,
+- [x] A file that cannot be read (truncated, another format version,
       another directory's) is ignored and replaced; one that cannot be
       written is skipped. Neither fails a query.
-- [ ] Measured: the same cold CLI calls after.
+- [x] Measured: the same cold CLI calls after (TASTy saved by one
+      earlier call; the machine under heavier load, ~50).
+
+| cold CLI call (median of 5) | before | after |
+|---|---|---|
+| `references query=Bulk.joinSorted` | 1.1 s | 0.96 s |
+| `references … callers=true` | 2.2 s | 0.81 s |
+| `source query=Bulk.joinSorted` | 2.2 s | 0.96 s |
+| `members query=FlowBulk` | 6.0 s | 1.0 s |
+
+The saved files: 56, 2.1 MB. The first call that reads a directory pays
+TASTy once (`members` filling all 56: 6.8 s); after a compile touches a
+module, its next call re-reads that one directory (1.3 s, then 0.86 s).
+Every cold call is now the fixed ~1 s; whether that second is worth a
+client-of-a-server CLI is the next measurement, not this one.
 
 Refuted, measured:
 - Saving the parsed documents. A prototype (a string table, then every

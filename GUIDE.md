@@ -109,11 +109,13 @@ SemanticDB nor a SCIP indexer is not supported.
 - **Measured** on okay's slice: 512 documents, 54 549 symbols, 287 908
   occurrences; the index builds in about 0.4 s and lives in memory; TASTy
   for 2 460 classes reads in a few seconds, in parallel, per module on
-  first use. A one-off command-line call costs a JVM start, about 0.7 s.
+  first use, and is saved in `.symdex/tasty`. A one-off command-line call
+  costs about 1 s (JVM, scan, parse); once TASTy is saved, `callers`,
+  `source` and `members` cost the same.
 - **Not measured**: a repository ten times larger. The index is held in
   memory and rebuilt whole (unchanged files are not re-read); its size and
-  build time grow with the occurrence count. Nothing is persisted, so a
-  server's first answer after start pays the build.
+  build time grow with the occurrence count. Only TASTy's reading is
+  persisted, so a server's first answer after start pays the build.
 - **Coverage is what was compiled.** A module never compiled with SemanticDB
   is invisible, and "every reference" means every one in the index.
   `status` names what is covered and what is stale.
@@ -326,7 +328,10 @@ Installed by `sbt symdexHook`, or in `.claude/settings.json` /
   compiled that way is invisible. `status` says what is covered;
   `symdexIndex` compiles everything.
 - **TASTy** (body spans, extension methods) is read per module when a tool
-  first needs it; a server reads all of it in the background at start. A
+  first needs it; a server reads all of it in the background at start.
+  What was read is saved in `.symdex/tasty`, one file per class directory,
+  and reused by the next process while that module's SemanticDB is
+  unchanged (the same files by count, latest mtime and total size). A
   class whose TASTy cannot be read falls back to indentation for its bodies,
   and `status` counts it.
 

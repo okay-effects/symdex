@@ -1,7 +1,8 @@
 package symdex
 
+import java.io.{BufferedInputStream, BufferedOutputStream, DataInputStream, DataOutputStream, IOException}
 import java.net.URI
-import java.nio.file.{FileSystems, Files, Path}
+import java.nio.file.{FileSystems, Files, Path, StandardCopyOption}
 
 import scala.jdk.CollectionConverters.*
 
@@ -74,15 +75,32 @@ object Tasty:
       case "test-meta" => metaDir.resolveSibling("test-classes")
       case _ => metaDir
 
-/** One class directory's TASTy, read on first use and kept while its SemanticDB is unchanged. */
-final class TastyDir(val dir: Path, val stamp: Long):
+/**
+ * One class directory's TASTy, read on first use and kept while its
+ * SemanticDB is unchanged (`stamp`). With a `saved` file, a read is
+ * written there and a later process with the same stamp reads the file
+ * instead: reading TASTy costs about a second a directory, the file a
+ * few milliseconds (specs/symdex.md, v0.6).
+ */
+final class TastyDir(val dir: Path, val stamp: String, saved: Option[Path] = None):
   @volatile private var failure: Option[String] = None
+  @volatile private var fromFile = false
   lazy val read: Tasty.Read =
-    try Tasty.read(dir)
-    catch case e: Exception =>
-      failure = Some(Option(e.getMessage).getOrElse(e.toString))
-      Tasty.Read(Map.empty, 0, 0)
+    saved.flatMap(f => SavedSpans.load(f, dir, stamp)) match
+      case Some(r) =>
+        fromFile = true
+        r
+      case None =>
+        try
+          val r = Tasty.read(dir)
+          saved.foreach(f => SavedSpans.save(f, dir, stamp, r))
+          r
+        catch case e: Exception =>
+          failure = Some(Option(e.getMessage).getOrElse(e.toString))
+          Tasty.Read(Map.empty, 0, 0)
   def failed: Option[String] = failure
+  /** read from its saved file rather than from TASTy */
+  def fromDisk: Boolean = fromFile
   @volatile private var done = false
   def loaded: Boolean = done
   def force(): Tasty.Read = { val r = read; done = true; r }
@@ -119,6 +137,7 @@ final class Spans(dirs: Map[Path, TastyDir],
   private def done = dirs.values.filter(_.loaded)
   def directories: Int = dirs.size
   def loaded: Int = done.size
+  def loadedFromDisk: Int = done.count(_.fromDisk)
   def classes: Int = done.iterator.map(_.read.classes).sum
   def skipped: Int = done.iterator.map(_.read.skipped).sum
   def size: Int = done.iterator.map(_.read.spans.size).sum + fixed.valuesIterator.map(_.valuesIterator.map(_.size).sum).sum
@@ -126,3 +145,60 @@ final class Spans(dirs: Map[Path, TastyDir],
 
 object Spans:
   val none: Spans = Spans(Map.empty)
+
+/**
+ * A class directory's spans on disk: a format version, the directory and
+ * the stamp they were read under, then the source paths once and every
+ * span. A file that does not match — another version, directory or
+ * stamp, or truncated — is not read; one that cannot be written is not
+ * written. Neither fails a query.
+ */
+object SavedSpans:
+  private val format = 1
+
+  /** where `classDir`'s spans are kept under `dir`: a name from its path */
+  def fileFor(dir: Path, classDir: Path): Path =
+    val digest = java.security.MessageDigest.getInstance("SHA-1").digest(classDir.toString.getBytes("UTF-8"))
+    dir.resolve(digest.take(10).map(b => f"${b & 0xff}%02x").mkString + ".spans")
+
+  def load(file: Path, classDir: Path, stamp: String): Option[Tasty.Read] =
+    try
+      val in = DataInputStream(BufferedInputStream(Files.newInputStream(file), 1 << 16))
+      try
+        if in.readInt() != format || in.readUTF() != classDir.toString || in.readUTF() != stamp then None
+        else
+          val classes = in.readInt()
+          val skipped = in.readInt()
+          val paths = Vector.fill(in.readInt())(in.readUTF())
+          val spans = Vector.fill(in.readInt())(
+            (paths(in.readInt()), in.readInt(), in.readInt()) -> Span(in.readInt(), in.readInt(), in.readBoolean()))
+          Some(Tasty.Read(spans.toMap, classes, skipped))
+      finally in.close()
+    catch case _: IOException | _: IndexOutOfBoundsException => None
+
+  def save(file: Path, classDir: Path, stamp: String, r: Tasty.Read): Unit =
+    try
+      val dir = file.toAbsolutePath.getParent
+      Files.createDirectories(dir)
+      // written whole beside it, then moved over it: a reader sees the old file or the new one
+      val tmp = Files.createTempFile(dir, "spans", ".tmp")
+      try
+        val out = DataOutputStream(BufferedOutputStream(Files.newOutputStream(tmp), 1 << 16))
+        try
+          val paths = r.spans.keysIterator.map(_._1).toVector.distinct
+          val index = paths.zipWithIndex.toMap
+          out.writeInt(format)
+          out.writeUTF(classDir.toString)
+          out.writeUTF(stamp)
+          out.writeInt(r.classes)
+          out.writeInt(r.skipped)
+          out.writeInt(paths.size)
+          paths.foreach(out.writeUTF)
+          out.writeInt(r.spans.size)
+          for ((p, line, col), s) <- r.spans do
+            out.writeInt(index(p)); out.writeInt(line); out.writeInt(col)
+            out.writeInt(s.startLine); out.writeInt(s.endLine); out.writeBoolean(s.extension)
+        finally out.close()
+        Files.move(tmp, file, StandardCopyOption.REPLACE_EXISTING, StandardCopyOption.ATOMIC_MOVE): Unit
+      finally Files.deleteIfExists(tmp): Unit
+    catch case _: IOException => ()

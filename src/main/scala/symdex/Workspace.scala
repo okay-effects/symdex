@@ -75,12 +75,15 @@ final class Workspace(val root: Path, recheckMillis: Long = 2000,
       .flatMap((f, d) => sourceOf(f, d.uri).map(src => Entry(f, src, display(src), d)))
       .distinctBy(_.source)
     // TASTy per class directory: kept while that module's SemanticDB is
-    // unchanged, read lazily (on first use, or by `warm` in a server)
-    val roots = files.filterNot(_.scip).groupBy(_.root).view.mapValues(_.map(_.mtime).max).toMap
+    // unchanged (its stamp), read lazily (on first use, or by `warm` in a server), and saved
+    // under .symdex/tasty for the next process
+    val roots = files.filterNot(_.scip).groupBy(_.root).view.mapValues(Workspace.stamp).toMap
     tasty = roots.map { (root, stamp) =>
       root -> (tasty.get(root) match
         case Some(d) if d.stamp == stamp => d
-        case _ => TastyDir(Tasty.classDirOf(root), stamp))
+        case _ =>
+          val classDir = Tasty.classDirOf(root)
+          TastyDir(classDir, stamp, Some(SavedSpans.fileFor(base.resolve(".symdex").resolve("tasty"), classDir))))
     }
     scipSpans = scipSpans.filter((p, _) => live(p))
     val spans = Spans(tasty, files.filter(_.scip).map(f => f.root -> scipSpans.getOrElse(f.path, Map.empty)).toMap)
@@ -115,3 +118,8 @@ final class Workspace(val root: Path, recheckMillis: Long = 2000,
     g.index.entries.filter(e =>
       try Files.getLastModifiedTime(e.source).toMillis > e.db.mtime
       catch case _: java.io.IOException => false)
+
+object Workspace:
+  /** one SemanticDB directory's files as a key: a compile rewrites at least one, a deleted source removes one */
+  def stamp(files: Vector[DbFile]): String =
+    s"${files.size}:${files.map(_.mtime).max}:${files.map(_.size).sum}"
