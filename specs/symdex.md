@@ -193,8 +193,9 @@ a hand-checked answer).
 - [x] `bin/symdex-hook`, a Claude Code PostToolUse hook for Bash and
       Grep: the context-diet rules, a digest computed from the output
       instead of written by a model (below).
-- [ ] Generations persisted under `.symdex/`, if a repository's build
-      time ever makes a restart cost something (see Storage).
+- [x] Generations persisted under `.symdex/`, if a repository's build
+      time ever makes a restart cost something (see Storage): measured
+      in v0.6, and only TASTy's part is worth it.
 
 ## v0.5 (2026-10-02): the plugin and the distribution
 
@@ -248,6 +249,56 @@ size before any JVM starts.
 | `rg -n joinSorted okay` | 14 676 chars | 4 902 |
 | `rg -n Source okay/okay-stream/src` | 48 852 | 5 069 |
 | `rg -n answered okay` | 167 409 | 4 745 |
+
+## v0.6 (2026-10-03): saved TASTy spans
+
+Storage's premise (a build of 0.4 s, nothing worth saving) was measured
+before TASTy. A one-shot `symdex <tool>` (the CLI, the agent arm of
+v0.4, the hook's suggestions) pays every start again, and on symdex's
+own checkout (534 documents, 56 class directories) the start splits as
+follows, in a fresh JVM, the machine under load (load average ~25):
+
+| phase | cost |
+|---|---|
+| JVM + classes (`--help`) | 0.24 s |
+| scan for SemanticDB | 0.14–0.29 s |
+| parse every `.semanticdb` | 0.40–0.58 s |
+| TASTy, one class directory (a `context` per directory: JDK + Scala library) | ~1 s |
+| TASTy, all 56, sequential | 22–25 s |
+
+| cold CLI call (median of 5) | before |
+|---|---|
+| `references query=Bulk.joinSorted` | 1.1 s |
+| `references … callers=true` (TASTy for the modules referenced) | 2.2 s |
+| `source query=Bulk.joinSorted` | 2.2 s |
+| `members query=FlowBulk` (every module's TASTy, in parallel) | 6.0 s |
+
+So what is worth saving is TASTy's reading, not SemanticDB's.
+
+- [ ] A class directory's spans, once read from TASTy, are written to
+      `.symdex/tasty/`, one file per directory; a later process whose
+      SemanticDB for that directory is unchanged reads the file instead
+      of TASTy.
+- [ ] Unchanged means the same `.semanticdb` files by count, latest
+      mtime and total size: a compile rewrites at least one, a deleted
+      source removes one. Changed, the directory is read from TASTy
+      again and its file rewritten. The in-memory check uses the same
+      key.
+- [ ] A file that cannot be read (truncated, another format version,
+      another directory's) is ignored and replaced; one that cannot be
+      written is skipped. Neither fails a query.
+- [ ] Measured: the same cold CLI calls after.
+
+Refuted, measured:
+- Saving the parsed documents. A prototype (a string table, then every
+  document and span; 19.6 MB for this checkout) read back in 0.13–0.66 s
+  against 0.40–0.58 s for parsing the protobuf: no gain, and a format to
+  keep in step with `Document`.
+- A store (okay's, SQLite) for it: each directory's spans are read whole
+  or not at all; a file per directory is the whole need.
+- Not now: the CLI as a client of a running server, which would also
+  save the JVM, the scan and the parse (~1 s). Decided by measuring
+  after this, if that second matters.
 
 ## What goes into okay
 
