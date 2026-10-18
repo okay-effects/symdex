@@ -14,7 +14,7 @@ indexes their own indexers write (scip-typescript, scip-python,
 rust-analyzer, scip-clang): drop an `index.scip` under the root. symdex
 writes no per-language analyzer.
 
-Built on [okay](https://github.com/sergey-scherbina/okay): its MCP server
+Built on [okay](https://github.com/okay-effects/okay): its MCP server
 and JSON codec; what symdex needs that is general goes into okay.
 
 **[GUIDE.md](GUIDE.md)** is the user guide: every tool with a real example,
@@ -69,7 +69,7 @@ that means several symbols is answered with the candidates.
 In the project, `project/plugins.sbt`:
 
 ```scala
-resolvers += Resolver.url("symdex", url("https://sergey-scherbina.github.io/symdex"))(Resolver.ivyStylePatterns)
+resolvers += Resolver.url("symdex", url("https://okay-effects.github.io/symdex"))(Resolver.ivyStylePatterns)
 addSbtPlugin("io.github.sergey-scherbina" % "sbt-symdex" % "0.5.2")
 ```
 
@@ -92,7 +92,7 @@ sbt symdexIndex symdexMcp symdexHook
 The server is not run inside sbt — an MCP client starts it as its own process — and
 needs no compile hook: it notices a compile from the SemanticDB it rewrites.
 
-Without sbt: unzip a [release](https://github.com/sergey-scherbina/symdex/releases)
+Without sbt: unzip a [release](https://github.com/okay-effects/symdex/releases)
 and run `symdex/bin/symdex serve --root <project>` (Java 17+), after compiling the
 project with `semanticdbEnabled := true`. From this checkout, `bin/symdex` does the
 same and stages itself with sbt the first time.

@@ -24,7 +24,7 @@ Every example below is real output, over the okay library.
 `project/plugins.sbt`:
 
 ```scala
-resolvers += Resolver.url("symdex", url("https://sergey-scherbina.github.io/symdex"))(Resolver.ivyStylePatterns)
+resolvers += Resolver.url("symdex", url("https://okay-effects.github.io/symdex"))(Resolver.ivyStylePatterns)
 addSbtPlugin("io.github.sergey-scherbina" % "sbt-symdex" % "0.5.2")
 ```
 
@@ -49,7 +49,7 @@ it takes: symdex sees a compile from the SemanticDB it rewrites.
 
 ### Without sbt
 
-Unzip a [release](https://github.com/sergey-scherbina/symdex/releases) and
+Unzip a [release](https://github.com/okay-effects/symdex/releases) and
 run it (Java 17 or newer):
 
 ```sh

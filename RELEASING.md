@@ -46,12 +46,12 @@ sbt symdexIndex symdexMcp symdexHook "symdex references query=<something> caller
    not (it did not after the source was switched), ask for it:
 
    ```sh
-   gh api -X POST repos/sergey-scherbina/symdex/pages/builds
+   gh api -X POST repos/okay-effects/symdex/pages/builds
    ```
 
 6. Check from the network alone: move
    `~/.ivy2/local/io.github.sergey-scherbina/sbt-symdex` aside, delete
-   `~/Library/Caches/Coursier/v1/https/sergey-scherbina.github.io`, and
+   `~/Library/Caches/Coursier/v1/https/okay-effects.github.io`, and
    load a project that names the version; restore the local copy after.
 7. A broken version is removed from `docs/` and the CHANGELOG says so; it is
    never overwritten in place (resolvers cache by version).

@@ -47,7 +47,7 @@ symdex / stage := {
   val script = out / "bin" / "symdex"
   IO.write(script,
     """#!/bin/sh
-      |# symdex, staged: no sbt needed. See https://github.com/sergey-scherbina/symdex
+      |# symdex, staged: no sbt needed. See https://github.com/okay-effects/symdex
       |here=$(cd "$(dirname "$0")/.." && pwd)
       |exec java -Xss8m ${SYMDEX_JAVA_OPTS:-} -cp "$here/lib/*" symdex.Symdex "$@"
       |""".stripMargin)

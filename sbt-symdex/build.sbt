@@ -11,6 +11,6 @@ scalacOptions ++= Seq("-deprecation", "-feature", "-Xfatal-warnings")
 // repository's docs/ directory on master: `sbt publish` here writes into
 // ../docs, and the commit that adds the files is the release. A build
 // needs only a resolver line, no Sonatype:
-//   resolvers += Resolver.url("symdex", url("https://sergey-scherbina.github.io/symdex"))(Resolver.ivyStylePatterns)
+//   resolvers += Resolver.url("symdex", url("https://okay-effects.github.io/symdex"))(Resolver.ivyStylePatterns)
 publishMavenStyle := false
 publishTo := Some(Resolver.file("symdex-pages", baseDirectory.value / ".." / "docs")(Resolver.ivyStylePatterns))

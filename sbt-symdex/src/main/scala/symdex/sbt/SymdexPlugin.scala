@@ -134,7 +134,7 @@ object SymdexPlugin extends AutoPlugin {
         val dir = file(sys.props("user.home")) / ".symdex" / version
         val l = dir / "symdex" / "bin" / "symdex"
         if (!l.exists) {
-          val url = s"https://github.com/sergey-scherbina/symdex/releases/download/v$version/symdex-$version.zip"
+          val url = s"https://github.com/okay-effects/symdex/releases/download/v$version/symdex-$version.zip"
           log.info(s"symdex: downloading $url")
           IO.withTemporaryFile("symdex", ".zip") { zip =>
             val in = java.net.URI.create(url).toURL.openStream()
