@@ -15,7 +15,7 @@ import java.nio.file.Path
  * on okay-scala's machine through okay-simple's adapter: a call is its tool's program run in that line.
  */
 object Symdex:
-  val version = "0.5.0"
+  val version = "0.6.0"
 
   private val usage =
     """symdex — structural code intelligence over SemanticDB, TASTy and SCIP

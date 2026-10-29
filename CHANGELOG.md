@@ -5,7 +5,7 @@ released as a zip on GitHub) and **sbt-symdex** (the sbt plugin, served from
 GitHub Pages). A plugin release names the symdex release it downloads;
 the plugin's own version may run ahead of it.
 
-## symdex — unreleased
+## symdex 0.6.0 — 2026-10-29
 
 - On effects (specs/symdex.md, v0.7). Every tool is a program over `Code`
   (the codebase as compiled), `Archive` and `Clock`; `Code`'s handler is a

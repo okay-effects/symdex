@@ -15,7 +15,7 @@ ThisBuild / resolvers ++= Seq(
 lazy val symdex = (project in file("."))
   .settings(
     name := "symdex",
-    version := "0.5.0",
+    version := "0.6.0",
     // symdex's own sources are indexed too: the test fixtures under
     // src/test/scala/fixture are read back from the SemanticDB the
     // compiler writes beside the classes
