@@ -1,8 +1,10 @@
 package symdex
 
-import java.io.{BufferedInputStream, BufferedOutputStream, DataInputStream, DataOutputStream, IOException}
+import okay.scala3.*
+
+import java.io.{ByteArrayInputStream, ByteArrayOutputStream, DataInputStream, DataOutputStream, IOException}
 import java.net.URI
-import java.nio.file.{FileSystems, Files, Path, StandardCopyOption}
+import java.nio.file.{FileSystems, Files, Path}
 
 import scala.jdk.CollectionConverters.*
 
@@ -14,6 +16,14 @@ import tastyquery.jdk.ClasspathLoaders
 
 /** A definition's full extent, 0-based lines, and whether it is an extension method. */
 final case class Span(startLine: Int, endLine: Int, extension: Boolean)
+
+/**
+ * THE COMPILED TREES (specs/symdex.md, v0.7): class directories' TASTy read — each its definition spans, or why it
+ * could not be read. Who reads them is the handler's: tasty-query (`query`, several directories in parallel), or
+ * reads given (`fixed`, a test's).
+ */
+enum Tasty[X]:
+  case Classes(dirs: Vector[Path]) extends Tasty[Vector[Either[String, Tasty.Read]]]
 
 /**
  * What SemanticDB does not record, read from TASTy: where each
@@ -31,6 +41,28 @@ final case class Span(startLine: Int, endLine: Int, extension: Boolean)
 object Tasty:
 
   final case class Read(spans: Map[(String, Int, Int), Span], classes: Int, skipped: Int)
+
+  def classes[R[_]](dirs: Vector[Path])(using In[Tasty, R]): Vector[Either[String, Read]] ! R =
+    perform[Tasty](Classes(dirs))
+
+  /** a directory read, or why not: never an exception */
+  def attempt(dir: Path): Either[String, Read] =
+    try Right(read(dir)) catch case e: Exception => Left(Option(e.getMessage).getOrElse(e.toString))
+
+  /** TASTY-QUERY: one directory in this thread, several in parallel (about a second each) */
+  def query[R[_], Rest[_], A](p: A ! R)(using Split[Tasty, R, Rest]): A ! Rest =
+    handle(p, Handler.tail[Tasty, Rest, A, A](pure)([X] => (op: Tasty[X]) => op match
+      case Classes(dirs) =>
+        if dirs.size <= 1 then dirs.map(attempt)
+        else
+          val out = java.util.concurrent.ConcurrentHashMap[Path, Either[String, Read]]()
+          java.util.ArrayList[Path](dirs.asJava).parallelStream().forEach(d => { out.put(d, attempt(d)): Unit })
+          dirs.map(d => out.get(d))))
+
+  /** reads given: a directory's read, or why not */
+  def fixed[R[_], Rest[_], A](reads: Path => Either[String, Read])(p: A ! R)(using Split[Tasty, R, Rest]): A ! Rest =
+    handle(p, Handler.tail[Tasty, Rest, A, A](pure)([X] => (op: Tasty[X]) => op match
+      case Classes(dirs) => dirs.map(reads)))
 
   private lazy val baseClasspath: List[Path] =
     val jrt = FileSystems.getFileSystem(URI.create("jrt:/")).getPath("modules", "java.base")
@@ -76,77 +108,6 @@ object Tasty:
       case _ => metaDir
 
 /**
- * One class directory's TASTy, read on first use and kept while its
- * SemanticDB is unchanged (`stamp`). With a `saved` file, a read is
- * written there and a later process with the same stamp reads the file
- * instead: reading TASTy costs about a second a directory, the file a
- * few milliseconds (specs/symdex.md, v0.6).
- */
-final class TastyDir(val dir: Path, val stamp: String, saved: Option[Path] = None):
-  @volatile private var failure: Option[String] = None
-  @volatile private var fromFile = false
-  lazy val read: Tasty.Read =
-    saved.flatMap(f => SavedSpans.load(f, dir, stamp)) match
-      case Some(r) =>
-        fromFile = true
-        r
-      case None =>
-        try
-          val r = Tasty.read(dir)
-          saved.foreach(f => SavedSpans.save(f, dir, stamp, r))
-          r
-        catch case e: Exception =>
-          failure = Some(Option(e.getMessage).getOrElse(e.toString))
-          Tasty.Read(Map.empty, 0, 0)
-  def failed: Option[String] = failure
-  /** read from its saved file rather than from TASTy */
-  def fromDisk: Boolean = fromFile
-  @volatile private var done = false
-  def loaded: Boolean = done
-  def force(): Tasty.Read = { val r = read; done = true; r }
-
-/**
- * Spans by SemanticDB root, loaded per class directory when a tool first
- * asks about a file in it — `references` with callers loads only the
- * modules its references are in. TASTy writes a source path relative to
- * its build's root, as SemanticDB writes its uri: usually the same string;
- * when two builds disagree on the root (okay compiled from symdex's build),
- * the longer path ends with the shorter.
- */
-final class Spans(dirs: Map[Path, TastyDir],
-                  fixed: Map[Path, Map[String, Map[(Int, Int), Span]]] = Map.empty):
-  private val byRoot = collection.concurrent.TrieMap.empty[Path, Map[String, Map[(Int, Int), Span]]]
-
-  private def table(root: Path): Map[String, Map[(Int, Int), Span]] =
-    byRoot.getOrElseUpdate(root, dirs.get(root) match
-      case None => fixed.getOrElse(root, Map.empty)
-      case Some(d) =>
-        d.force().spans.toVector.groupMap(_._1._1)((k, v) => (k._2, k._3) -> v).view.mapValues(_.toMap).toMap)
-
-  /** the span of the definition whose name SemanticDB puts at `r` in `uri`, under SemanticDB root `root` */
-  def of(root: Path, uri: String, r: Range): Option[Span] =
-    val t = table(root)
-    val path = if t.contains(uri) then Some(uri) else t.keys.find(p => p.endsWith("/" + uri) || uri.endsWith("/" + p))
-    path.flatMap(p => t(p).get((r.startLine, r.startChar)))
-
-  /** read every class directory now, in parallel: a server does this once, in the background */
-  def warm(): Unit =
-    val all = java.util.ArrayList[Path](dirs.keys.toVector.sortBy(_.toString).toSeq.asJava)
-    all.parallelStream().forEach(r => { val _ = table(r) })
-
-  private def done = dirs.values.filter(_.loaded)
-  def directories: Int = dirs.size
-  def loaded: Int = done.size
-  def loadedFromDisk: Int = done.count(_.fromDisk)
-  def classes: Int = done.iterator.map(_.read.classes).sum
-  def skipped: Int = done.iterator.map(_.read.skipped).sum
-  def size: Int = done.iterator.map(_.read.spans.size).sum + fixed.valuesIterator.map(_.valuesIterator.map(_.size).sum).sum
-  def failures: Vector[String] = dirs.values.flatMap(d => d.failed.map(m => s"tasty ${d.dir}: $m")).toVector
-
-object Spans:
-  val none: Spans = Spans(Map.empty)
-
-/**
  * A class directory's spans on disk: a format version, the directory and
  * the stamp they were read under, then the source paths once and every
  * span. A file that does not match — another version, directory or
@@ -161,44 +122,36 @@ object SavedSpans:
     val digest = java.security.MessageDigest.getInstance("SHA-1").digest(classDir.toString.getBytes("UTF-8"))
     dir.resolve(digest.take(10).map(b => f"${b & 0xff}%02x").mkString + ".spans")
 
-  def load(file: Path, classDir: Path, stamp: String): Option[Tasty.Read] =
+  /** the spans read back from a saved file's bytes — or none: another version, directory or stamp, or damaged */
+  def decode(bytes: Array[Byte], classDir: Path, stamp: String): Option[Tasty.Read] =
     try
-      val in = DataInputStream(BufferedInputStream(Files.newInputStream(file), 1 << 16))
-      try
-        if in.readInt() != format || in.readUTF() != classDir.toString || in.readUTF() != stamp then None
-        else
-          val classes = in.readInt()
-          val skipped = in.readInt()
-          val paths = Vector.fill(in.readInt())(in.readUTF())
-          val spans = Vector.fill(in.readInt())(
-            (paths(in.readInt()), in.readInt(), in.readInt()) -> Span(in.readInt(), in.readInt(), in.readBoolean()))
-          Some(Tasty.Read(spans.toMap, classes, skipped))
-      finally in.close()
+      val in = DataInputStream(ByteArrayInputStream(bytes))
+      if in.readInt() != format || in.readUTF() != classDir.toString || in.readUTF() != stamp then None
+      else
+        val classes = in.readInt()
+        val skipped = in.readInt()
+        val paths = Vector.fill(in.readInt())(in.readUTF())
+        val spans = Vector.fill(in.readInt())(
+          (paths(in.readInt()), in.readInt(), in.readInt()) -> Span(in.readInt(), in.readInt(), in.readBoolean()))
+        Some(Tasty.Read(spans.toMap, classes, skipped))
     catch case _: IOException | _: IndexOutOfBoundsException => None
 
-  def save(file: Path, classDir: Path, stamp: String, r: Tasty.Read): Unit =
-    try
-      val dir = file.toAbsolutePath.getParent
-      Files.createDirectories(dir)
-      // written whole beside it, then moved over it: a reader sees the old file or the new one
-      val tmp = Files.createTempFile(dir, "spans", ".tmp")
-      try
-        val out = DataOutputStream(BufferedOutputStream(Files.newOutputStream(tmp), 1 << 16))
-        try
-          val paths = r.spans.keysIterator.map(_._1).toVector.distinct
-          val index = paths.zipWithIndex.toMap
-          out.writeInt(format)
-          out.writeUTF(classDir.toString)
-          out.writeUTF(stamp)
-          out.writeInt(r.classes)
-          out.writeInt(r.skipped)
-          out.writeInt(paths.size)
-          paths.foreach(out.writeUTF)
-          out.writeInt(r.spans.size)
-          for ((p, line, col), s) <- r.spans do
-            out.writeInt(index(p)); out.writeInt(line); out.writeInt(col)
-            out.writeInt(s.startLine); out.writeInt(s.endLine); out.writeBoolean(s.extension)
-        finally out.close()
-        Files.move(tmp, file, StandardCopyOption.REPLACE_EXISTING, StandardCopyOption.ATOMIC_MOVE): Unit
-      finally Files.deleteIfExists(tmp): Unit
-    catch case _: IOException => ()
+  /** a directory's spans as a saved file's bytes */
+  def encode(classDir: Path, stamp: String, r: Tasty.Read): Array[Byte] =
+    val bytes = ByteArrayOutputStream(1 << 16)
+    val out = DataOutputStream(bytes)
+    val paths = r.spans.keysIterator.map(_._1).toVector.distinct
+    val index = paths.zipWithIndex.toMap
+    out.writeInt(format)
+    out.writeUTF(classDir.toString)
+    out.writeUTF(stamp)
+    out.writeInt(r.classes)
+    out.writeInt(r.skipped)
+    out.writeInt(paths.size)
+    paths.foreach(out.writeUTF)
+    out.writeInt(r.spans.size)
+    for ((p, line, col), s) <- r.spans do
+      out.writeInt(index(p)); out.writeInt(line); out.writeInt(col)
+      out.writeInt(s.startLine); out.writeInt(s.endLine); out.writeBoolean(s.extension)
+    out.flush()
+    bytes.toByteArray

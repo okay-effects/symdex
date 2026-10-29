@@ -1,6 +1,6 @@
 package symdex
 
-import java.nio.file.{Files, Path}
+import java.nio.file.Path
 import scala.collection.mutable
 
 /** A place in a source file: which file (as shown), which module, which range. */
@@ -13,15 +13,40 @@ final case class Loc(file: String, source: Path, module: String, range: Range):
 final case class Entry(db: DbFile, source: Path, file: String, doc: Document)
 
 /**
- * Everything the tools ask, precomputed from one set of documents. An
- * Index is immutable: a new build is a new Index, swapped in whole.
+ * A SemanticDB root's definition spans (from TASTy, or a SCIP index's own ranges): by the source path as the
+ * compiler wrote it, then the position of the definition's name — exactly SemanticDB's definition occurrence.
  */
-final class Index(val root: Path, val entries: Vector[Entry], val spans: Spans = Spans.none):
+type SpanTable = Map[String, Map[(Int, Int), Span]]
+
+object SpanTable:
+  val empty: SpanTable = Map.empty
+  def from(spans: Map[(String, Int, Int), Span]): SpanTable =
+    spans.toVector.groupMap(_._1._1)((k, v) => (k._2, k._3) -> v).view.mapValues(_.toMap).toMap
+
+  /**
+   * The span of the definition whose name is at `r` in `uri`. TASTy writes a source path relative to its build's
+   * root, as SemanticDB writes its uri: usually the same string; when two builds disagree on the root, the longer
+   * path ends with the shorter.
+   */
+  def of(t: SpanTable, uri: String, r: Range): Option[Span] =
+    val path = if t.contains(uri) then Some(uri) else t.keys.find(p => p.endsWith("/" + uri) || uri.endsWith("/" + p))
+    path.flatMap(p => t(p).get((r.startLine, r.startChar)))
+
+/**
+ * Everything the tools ask, precomputed from one set of documents. An Index is immutable data — a new build is a
+ * new Index, swapped in whole — and reads nothing: a definition's span comes from `Code` (its SemanticDB root's
+ * table), handed in where it is needed.
+ */
+final class Index(val root: Path, val entries: Vector[Entry]):
 
   private val entryOf: Map[String, Entry] = entries.map(e => e.file -> e).toMap
 
-  /** the full extent of the definition named at `l`, when TASTy has it */
-  def spanAt(l: Loc): Option[Span] = entryOf.get(l.file).flatMap(e => spans.of(e.db.root, e.doc.uri, l.range))
+  /** the document an indexed file was read from */
+  def entryFor(file: String): Option[Entry] = entryOf.get(file)
+
+  /** the full extent of the definition named at `l`, in its root's table */
+  def spanAt(l: Loc, table: SpanTable): Option[Span] =
+    entryOf.get(l.file).flatMap(e => SpanTable.of(table, e.doc.uri, l.range))
 
   /** what every symbol is, from the document that defines it */
   val infos: Map[String, Info] =
@@ -87,7 +112,7 @@ final class Index(val root: Path, val entries: Vector[Entry], val spans: Spans =
           .filter(o => o.definition && Symbols.isLocal(o.symbol)).map(o => o.symbol -> o.range).toMap
         def anon(r: Range): Anonymous =
           val loc = Loc(e.file, e.source, e.db.module, r)
-          Anonymous(loc, enclosing(loc))
+          Anonymous(loc, enclosing(loc, SpanTable.empty))
         for i <- locals do
           if i.kind == Info.Class && i.parents.nonEmpty then
             val r = (at.get(i.symbol).toVector ++ i.declarations.flatMap(at.get))
@@ -120,11 +145,12 @@ final class Index(val root: Path, val entries: Vector[Entry], val spans: Spans =
    * a method's end is credited to that method until the next definition.
    * TASTy carries the spans that would make it exact (specs/symdex.md).
    */
-  def enclosing(l: Loc): Option[String] =
+  def enclosing(l: Loc, table: SpanTable): Option[String] =
     val defs = outlines.getOrElse(l.file, Vector.empty)
     val e = entryOf.get(l.file)
     // exact, from TASTy: the innermost definition whose span holds the line
-    val exact = e.toVector.flatMap(en => defs.flatMap((r, s) => spans.of(en.db.root, en.doc.uri, r).map(sp => (r, s, sp))))
+    val exact = e.toVector.flatMap(en =>
+        defs.flatMap((r, s) => SpanTable.of(table, en.doc.uri, r).map(sp => (r, s, sp))))
       .filter((r, _, sp) => sp.startLine <= l.range.startLine && l.range.startLine <= sp.endLine &&
         !(r.startLine == l.range.startLine && r.startChar == l.range.startChar))
       .maxByOption((r, _, sp) => (sp.startLine, r.startChar))
@@ -139,12 +165,12 @@ final class Index(val root: Path, val entries: Vector[Entry], val spans: Spans =
    * def doubled` under Shape): TASTy says which methods are extensions,
    * SemanticDB's first parameter's type says on what.
    */
-  lazy val extensionsOn: Map[String, Vector[String]] =
-    spans.warm() // every module's TASTy, read in parallel, before the scan asks one by one
+  def extensionsOn(tables: Path => SpanTable): Map[String, Vector[String]] =
     infos.values.toVector.flatMap { i =>
       if i.kind != Info.Method then None
       else
-        val isExt = definitions.get(i.symbol).flatMap(_.headOption).flatMap(spanAt).exists(_.extension)
+        val isExt = definitions.get(i.symbol).flatMap(_.headOption)
+          .flatMap(l => entryOf.get(l.file).flatMap(e => spanAt(l, tables(e.db.root)))).exists(_.extension)
         if !isExt then None
         else i.params.headOption.flatMap(infos.get).map(_.result).filter(_.nonEmpty).map(_ -> i.symbol)
     }.groupMap(_._1)(_._2).view.mapValues(_.distinct.sorted).toMap
@@ -205,13 +231,3 @@ final class Index(val root: Path, val entries: Vector[Entry], val spans: Spans =
     var i = 0
     for h <- have do if i < want.size && want(i) == h then i += 1
     i == want.size
-
-/** Reads source lines for display, once per file per index. */
-final class Sources:
-  private val cache = mutable.HashMap.empty[Path, Vector[String]]
-  def lines(p: Path): Vector[String] = synchronized {
-    cache.getOrElseUpdate(p,
-      try Files.readAllLines(p).toArray(Array.empty[String]).toVector
-      catch case _: java.io.IOException => Vector.empty)
-  }
-  def line(p: Path, n: Int): String = lines(p).lift(n - 1).getOrElse("")

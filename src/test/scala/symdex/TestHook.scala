@@ -1,25 +1,25 @@
 package symdex
 
-import okay.codec.Json
-import okay.codec.Json.*
-import java.nio.file.Files
+import okay.effects.json.{Descent, Json}
+import okay.scala3.*
+import java.nio.file.{Files, Path}
 
 class TestHook extends munit.FunSuite:
   private val dir = Files.createTempDirectory("symdex-hook")
 
   private def event(tool: String, input: (String, String), output: String): String =
-    Json.print(JObj(Vector(
-      "hook_event_name" -> JStr("PostToolUse"), "tool_name" -> JStr(tool),
-      "tool_input" -> JObj(Vector(input._1 -> JStr(input._2))),
-      "tool_response" -> JObj(Vector("type" -> JStr("text"), "text" -> JStr(output))))))
+    Json.print(Json.obj(
+      "hook_event_name" -> Json.Str("PostToolUse"), "tool_name" -> Json.Str(tool),
+      "tool_input" -> Json.obj(input._1 -> Json.Str(input._2)),
+      "tool_response" -> Json.obj("type" -> Json.Str("text"), "text" -> Json.Str(output))))
 
   private val searchOut =
     (1 to 600).map(i => s"okay-stream/src/main/scala/F${i % 30}.scala:$i:  val x = Source.of($i) // some text").mkString("\n")
 
   private def replaced(out: Option[String]): String =
-    val j = Json.parse(out.getOrElse(fail("expected a replacement")))
-    val Some(JObj(h)) = (j match { case JObj(fs) => fs.collectFirst { case ("hookSpecificOutput", v) => v }; case _ => None }): @unchecked
-    h.collectFirst { case ("updatedToolOutput", JStr(s)) => s }.getOrElse(fail(out.toString))
+    val j = Descent.parse(out.getOrElse(fail("expected a replacement"))).getOrElse(fail(out.toString))
+    j.field("hookSpecificOutput").flatMap(_.field("updatedToolOutput")).collect { case Json.Str(s) => s }
+      .getOrElse(fail(out.toString))
 
   test("a large grep becomes a digest of itself, archived whole, with the symdex query"):
     val d = replaced(Hook.run(event("Bash", "command" -> "rg -n Source okay-stream", searchOut), dir))
@@ -57,3 +57,16 @@ class TestHook extends munit.FunSuite:
     assert(!Hook.allowed("cat file"))
     assert(!Hook.allowed("rg foo | sed -n 1,5p"))
     assert(!Hook.allowed("echo hi"))
+
+  test("the archive on a disk keeps the 200 newest, each output written whole once"):
+    val disk = Disk.Memory()
+    val dir = Path.of("/m/.symdex/archive")
+    val names = run(Disk.memory(disk)(Archive.files(dir)(
+      each(1 to 205)(i => Archive.put[Archive + Disk](s"output $i")))))
+    assertEquals(disk.paths.count(_.startsWith(dir)), 200)
+    // the first five, the oldest, are gone; the last is there, whole
+    assert(!disk.paths.contains(Path.of(names.head)), names.head)
+    assertEquals(disk.bytes(Path.of(names.last)).map(String(_, "UTF-8")), Some("output 205"))
+    // the same text again: the same file, not another
+    val again = run(Disk.memory(disk)(Archive.files(dir)(Archive.put[Archive + Disk]("output 205"))))
+    assertEquals(again, names.last)

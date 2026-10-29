@@ -1,21 +1,18 @@
 /*
- * symdex — structural code intelligence for agents, built on okay.
- *
- * okay rides as a git SUBMODULE (`okay/`) and its modules are referenced
- * as ProjectRefs, the arrangement okay-chat uses: one checkout, no
- * published artifact, and a change symdex needs in okay is made in okay
- * (its own repository, its own gate) and the submodule moved.
+ * symdex — structural code intelligence for agents, on effects (specs/symdex.md, v0.7):
+ * okay-scala for symdex's own effects, okay-simple's JSON value, okay-mcp for the
+ * server — the released libraries, from their maven repositories.
  */
 ThisBuild / scalaVersion := "3.9.0"
 ThisBuild / organization := "io.github.sergey-scherbina"
 ThisBuild / licenses := Seq("Apache-2.0" -> url("https://www.apache.org/licenses/LICENSE-2.0"))
 ThisBuild / scalacOptions ++= Seq("-Wunused:all", "-Werror")
-
-lazy val okayMcp = ProjectRef(file("okay"), "okayMcpJVM")
-lazy val okayCodec = ProjectRef(file("okay"), "okayCodecJVM")
+ThisBuild / resolvers ++= Seq(
+  "okay-scala" at "https://okay-effects.github.io/okay-scala/maven",
+  "okay-simple" at "https://okay-effects.github.io/okay-simple/maven",
+  "okay-mcp" at "https://okay-effects.github.io/okay-mcp/maven")
 
 lazy val symdex = (project in file("."))
-  .dependsOn(okayMcp, okayCodec)
   .settings(
     name := "symdex",
     version := "0.5.0",
@@ -24,6 +21,11 @@ lazy val symdex = (project in file("."))
     // compiler writes beside the classes
     semanticdbEnabled := true,
     libraryDependencies ++= Seq(
+      "io.github.okay-effects" %% "okay-scala" % "0.1.1",
+      "io.github.okay-effects" %% "okay-effects-json-value" % "0.1.1",
+      // the MCP server, on okay-scala's machine through okay-simple's adapter
+      "io.github.okay-effects" %% "okay-mcp" % "0.1.0",
+      "io.github.okay-effects" %% "okay-effects-cek" % "0.1.1",
       // TASTy, for what SemanticDB lacks: definition spans, extension flags
       "ch.epfl.scala" %% "tasty-query" % "1.9.0",
       "org.scalameta" %% "munit" % "1.1.1" % Test,

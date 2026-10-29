@@ -1,6 +1,8 @@
 package symdex
 
-import okay.codec.Json
+import okay.effects.json.Json
+import okay.scala3.*
+import symdex.Symdex.Asked
 import java.nio.file.{Files, Path}
 
 /**
@@ -10,9 +12,9 @@ import java.nio.file.{Files, Path}
  */
 class TestScip extends munit.FunSuite:
   private val dir = Path.of("src/test/resources/scip")
-  private val tools = Tools(Workspace(dir))
-  private def call(f: Json => String, kv: (String, Json)*): String = f(Json.JObj(kv.toVector))
-  private def q(s: String) = "query" -> Json.JStr(s)
+  private val live = Symdex.Live(dir)
+  private def call(f: Json => String ! Asked, kv: (String, Json)*): String = live.run(f(Json.Obj(kv.toVector)))
+  private def q(s: String) = "query" -> Json.Str(s)
 
   test("the symbol's descriptor is what is kept"):
     assertEquals(Scip.descriptor("semanticdb maven . . shop/Shape#area()."), "shop/Shape#area().")
@@ -26,12 +28,12 @@ class TestScip extends munit.FunSuite:
     assert(defs("shop/Shape#area()."), defs)
 
   test("the tools answer over SCIP: implementations, overriders, callers, source"):
-    val impl = call(tools.implementations, q("shop.Shape"))
+    val impl = call(Tools.implementations[Asked], q("shop.Shape"))
     assert(impl.contains("shop/Square#"), impl)
-    val area = call(tools.implementations, q("shop/Shape#area()."))
+    val area = call(Tools.implementations[Asked], q("shop/Shape#area()."))
     assert(area.contains("shop/Square#area()."), area)
-    val callers = call(tools.references, q("Shape.area"), "callers" -> Json.JBool(true))
+    val callers = call(Tools.references[Asked], q("Shape.area"), "callers" -> Json.Bool(true))
     assert(callers.contains("shop.Use#total"), callers)
-    val src = call(tools.source, q("shop/Use#total()."))
+    val src = call(Tools.source[Asked], q("shop/Use#total()."))
     assert(src.contains("return sum;"), src)
     assert(!src.contains("main"), src)

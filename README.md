@@ -14,8 +14,13 @@ indexes their own indexers write (scip-typescript, scip-python,
 rust-analyzer, scip-clang): drop an `index.scip` under the root. symdex
 writes no per-language analyzer.
 
-Built on [okay](https://github.com/okay-effects/okay): its MCP server
-and JSON codec; what symdex needs that is general goes into okay.
+Built on effects, from the released libraries: [okay-scala](https://github.com/okay-effects/okay-scala)
+for symdex's own effects, [okay-mcp](https://github.com/okay-effects/okay-mcp) for the server,
+[okay-simple](https://github.com/okay-effects/okay-simple)'s JSON. Every tool is a program over three
+effects — `Code` (the codebase as compiled), `Archive` (where a long answer is kept), `Clock` — and
+`Code`'s own handler is a program over `Disk`, `Tasty` and `Clock`: so a tool runs against an index
+given, with no disk and no compiler, and the index's building runs against files in memory
+(specs/symdex.md, v0.7).
 
 **[GUIDE.md](GUIDE.md)** is the user guide: every tool with a real example,
 languages, limits, settings, the hook, troubleshooting, and the literature.
@@ -115,7 +120,7 @@ are never touched. In `.claude/settings.json`:
 
 ## Build
 
-`git clone --recursive`, then `sbt test`. okay is a submodule.
+`git clone`, then `sbt test`. The libraries come from their maven repositories (build.sbt).
 
 ## License
 

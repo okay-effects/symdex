@@ -1,9 +1,9 @@
 package symdex
 
-import okay.codec.Json
-import okay.codec.Json.*
+import okay.effects.json.{Descent, Json}
+import okay.scala3.*
 
-import java.nio.file.{Files, Path}
+import java.nio.file.Path
 
 /**
  * A Claude Code PostToolUse hook for Bash and Grep: a large search or
@@ -23,6 +23,9 @@ import java.nio.file.{Files, Path}
  *  - never an output that looks like it carries a credential: it would
  *    otherwise be written to the archive
  *  - any failure leaves the output as it was
+ *
+ * The decision is a program over `Archive` (specs/symdex.md, v0.7); `run` gives it the files under the project's
+ * `.symdex/archive`, on the disk.
  */
 object Hook:
 
@@ -44,17 +47,16 @@ object Hook:
 
   /** the decision, as the hook's stdout: `None` leaves the output alone */
   def run(input: String, archiveDir: Path): Option[String] =
-    try decide(Json.parse(input), archiveDir)
-    catch case _: Exception => None
+    Descent.parse(input).toOption.flatMap(json =>
+      try okay.scala3.run(Disk.real(Archive.files(archiveDir)(decide[Archive + Disk](json))))
+      catch case _: Exception => None)
 
-  private def field(j: Json, k: String): Option[Json] = j match
-    case JObj(fs) => fs.collectFirst { case (`k`, v) => v }
-    case _ => None
+  private def field(j: Json, k: String): Option[Json] = j.field(k)
   private def text(j: Json): Option[String] = j match
-    case JStr(s) => Some(s)
+    case Json.Str(s) => Some(s)
     case _ => None
 
-  def decide(in: Json, archiveDir: Path): Option[String] =
+  def decide[R[_]: Has[Archive]](in: Json): Option[String] ! R =
     val tool = field(in, "tool_name").flatMap(text).getOrElse("")
     val response = field(in, "tool_response")
     val output = response.flatMap(r => text(r).orElse(field(r, "text").flatMap(text))
@@ -66,14 +68,14 @@ object Hook:
       case "Grep" => true
       case "Bash" => allowed(command)
       case _ => false
-    if !eligible || Tools.tokens(output) < MinTokens || Secret.findFirstIn(output).isDefined then None
-    else
-      val id = archive(archiveDir, output)
-      val digest = digestOf(output, id, hint(tool, command, pattern))
+    if !eligible || Tools.tokens(output) < MinTokens || Secret.findFirstIn(output).isDefined then pure(None)
+    else Archive.put[R](output).map { kept =>
+      val digest = digestOf(output, kept, hint(tool, command, pattern))
       if digest.length > output.length * 7 / 10 then None
-      else Some(Json.print(JObj(Vector("hookSpecificOutput" -> JObj(Vector(
-        "hookEventName" -> JStr("PostToolUse"),
-        "updatedToolOutput" -> JStr(digest)))))))
+      else Some(Json.print(Json.obj("hookSpecificOutput" -> Json.obj(
+        "hookEventName" -> Json.Str("PostToolUse"),
+        "updatedToolOutput" -> Json.Str(digest)))))
+    }
 
   /** a search, listing or test command, and not an exact read: every part of a pipeline is looked at */
   def allowed(command: String): Boolean =
@@ -93,21 +95,8 @@ object Hook:
     word.map(w => s"symdex answers this exactly, comments and other symbols named `$w` left out: " +
       s"references query=$w (callers=true to group by caller), definition query=$w")
 
-  private def archive(dir: Path, output: String): Path =
-    Files.createDirectories(dir)
-    val md = java.security.MessageDigest.getInstance("SHA-256")
-    val id = md.digest(output.getBytes("UTF-8")).take(6).map(b => f"${b & 0xff}%02x").mkString
-    val file = dir.resolve(s"$id.txt")
-    if !Files.exists(file) then Files.writeString(file, output): Unit
-    // bounded: the oldest beyond 200 go
-    val all = Files.list(dir)
-    try
-      val files = all.toArray(n => new Array[Path](n)).toVector.sortBy(p => Files.getLastModifiedTime(p).toMillis)
-      files.dropRight(200).foreach(Files.deleteIfExists(_): Unit)
-    finally all.close()
-    file
-
-  def digestOf(output: String, archived: Path, hint: Option[String]): String =
+  /** the digest of an output; `archived` names where the whole of it is kept */
+  def digestOf(output: String, archived: String, hint: Option[String]): String =
     val lines = output.linesIterator.toVector
     val files = lines.flatMap(l => PathLine.findFirstMatchIn(l).map(_.group(1)))
       .groupMapReduce(identity)(_ => 1)(_ + _).toVector.sortBy((f, n) => (-n, f))

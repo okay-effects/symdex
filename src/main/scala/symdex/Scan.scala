@@ -1,7 +1,8 @@
 package symdex
 
-import java.nio.file.{FileVisitResult, Files, Path, SimpleFileVisitor}
-import java.nio.file.attribute.BasicFileAttributes
+import okay.scala3.*
+
+import java.nio.file.Path
 
 /** One `.semanticdb` file on disk, and which module and configuration wrote it. */
 final case class DbFile(path: Path, root: Path, module: String, test: Boolean,
@@ -12,7 +13,7 @@ final case class DbFile(path: Path, root: Path, module: String, test: Boolean,
  * `target/scala-<version>/meta` (`test-meta` for tests); older setups and
  * other tools put it beside the classes, in `classes/META-INF/semanticdb`.
  * Both are found, and so is any SCIP index (`*.scip`). A class directory is never walked — only its
- * `META-INF/semanticdb` — so a large build's class files cost nothing.
+ * `META-INF/semanticdb` — so a large build's class files cost nothing. The walk is a program over `Disk`.
  */
 object Scan:
 
@@ -22,43 +23,46 @@ object Scan:
 
   private val classDirs = Set("classes", "test-classes")
 
-  def files(root: Path): Vector[DbFile] =
-    val out = Vector.newBuilder[DbFile]
+  /** every SemanticDB and SCIP file under `root`, by `Disk`: the walk an explicit stack of directories */
+  def files[R[_]](root: Path)(using In[Disk, R]): Vector[DbFile] ! R =
     val base = root.toAbsolutePath.normalize
-    Files.walkFileTree(base, new SimpleFileVisitor[Path]:
-      override def preVisitDirectory(dir: Path, attrs: BasicFileAttributes): FileVisitResult =
-        val name = Option(dir.getFileName).map(_.toString).getOrElse("")
-        if dir != base && skip(name) then FileVisitResult.SKIP_SUBTREE
-        else if name == "semanticdb" && Option(dir.getParent).exists(_.getFileName.toString == "META-INF") then
-          collect(base, dir, out)
-          FileVisitResult.SKIP_SUBTREE
-        else if classDirs(name) then
-          val db = dir.resolve("META-INF").resolve("semanticdb")
-          if Files.isDirectory(db) then collect(base, db, out)
-          FileVisitResult.SKIP_SUBTREE
-        else FileVisitResult.CONTINUE
-      // a SCIP index (`index.scip`, any `*.scip`): the module is the directory it sits in
-      override def visitFile(file: Path, attrs: BasicFileAttributes): FileVisitResult =
-        if file.getFileName.toString.endsWith(".scip") then
-          val dir = file.getParent
-          val rel = base.relativize(dir).toString.replace('\\', '/')
-          val module = if rel.isEmpty then Option(base.getFileName).map(_.toString).getOrElse(".") else rel
-          out += DbFile(file, dir, module, test = false, attrs.lastModifiedTime.toMillis, attrs.size, scip = true)
-        FileVisitResult.CONTINUE
-      override def visitFileFailed(file: Path, e: java.io.IOException): FileVisitResult =
-        FileVisitResult.CONTINUE
-    ): Unit
-    out.result()
+    loop[(List[Node], Vector[DbFile]), Vector[DbFile], R]((List(Node(base, true, 0L, 0L)), Vector.empty)) {
+      case (Nil, out) => pure(Right(out))
+      case (dir :: rest, out) => visit(base, dir).map((more, found) => Left((more ++ rest, out ++ found)))
+    }
 
-  private def collect(base: Path, db: Path, out: collection.mutable.Builder[DbFile, Vector[DbFile]]): Unit =
+  /** a directory: the directories to walk next, and the files found in it */
+  private def visit[R[_]](base: Path, dir: Node)(using In[Disk, R]): (List[Node], Vector[DbFile]) ! R =
+    val name = dir.name
+    val parent = Option(dir.path.getParent).flatMap(p => Option(p.getFileName)).map(_.toString).getOrElse("")
+    if dir.path != base && skip(name) then pure((Nil, Vector.empty))
+    else if name == "semanticdb" && parent == "META-INF" then collect(base, dir.path).map(found => (Nil, found))
+    else if classDirs(name) then
+      // a class directory is never walked: only its META-INF/semanticdb
+      val db = dir.path.resolve("META-INF").resolve("semanticdb")
+      Disk.isDirectory[R](db).flatMap(isDb => if isDb then collect(base, db).map(found => (Nil, found))
+        else pure((Nil, Vector.empty)))
+    else Disk.entries[R](dir.path).map { nodes =>
+      // a SCIP index (`index.scip`, any `*.scip`): the module is the directory it sits in
+      val scip = nodes.filter(n => !n.directory && n.name.endsWith(".scip")).map { n =>
+        val rel = base.relativize(dir.path).toString.replace('\\', '/')
+        val module = if rel.isEmpty then Option(base.getFileName).map(_.toString).getOrElse(".") else rel
+        DbFile(n.path, dir.path, module, test = false, n.mtime, n.size, scip = true)
+      }
+      (nodes.filter(_.directory).toList, scip)
+    }
+
+  /** the `.semanticdb` files under one SemanticDB directory, at any depth */
+  private def collect[R[_]](base: Path, db: Path)(using In[Disk, R]): Vector[DbFile] ! R =
     val (module, test) = moduleOf(base, db)
-    val stream = Files.walk(db)
-    try
-      stream.filter(p => p.toString.endsWith(".semanticdb") && Files.isRegularFile(p))
-        .forEach { p =>
-          out += DbFile(p, db, module, test, Files.getLastModifiedTime(p).toMillis, Files.size(p))
-        }
-    finally stream.close()
+    loop[(List[Path], Vector[DbFile]), Vector[DbFile], R]((List(db), Vector.empty)) {
+      case (Nil, out) => pure(Right(out))
+      case (dir :: rest, out) => Disk.entries[R](dir).map { nodes =>
+        val found = nodes.filter(n => !n.directory && n.name.endsWith(".semanticdb"))
+          .map(n => DbFile(n.path, db, module, test, n.mtime, n.size))
+        Left((nodes.filter(_.directory).map(_.path).toList ++ rest, out ++ found))
+      }
+    }
 
   /**
    * The module is the directory that owns `target`, relative to the

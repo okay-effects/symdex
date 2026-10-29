@@ -410,7 +410,9 @@ error, never ignored.
    use SemanticDB's syntax, and its enclosing ranges are body spans.
 4. The index is built in memory (0.4 s for okay's 512 documents and 288 000
    occurrences), rebuilt when a compile changes the input, and served by
-   okay's MCP server.
+   okay-mcp's server. Each tool is a program over the effects `Code`,
+   `Archive` and `Clock`; their handlers decide where the codebase comes
+   from (specs/symdex.md, v0.7).
 
 Design decisions and their measurements are in [specs/symdex.md](specs/symdex.md).
 

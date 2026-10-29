@@ -7,6 +7,15 @@ the plugin's own version may run ahead of it.
 
 ## symdex — unreleased
 
+- On effects (specs/symdex.md, v0.7). Every tool is a program over `Code`
+  (the codebase as compiled), `Archive` and `Clock`; `Code`'s handler is a
+  program over `Disk`, `Tasty` and `Clock`. Nothing reaches the disk, the
+  compiler's output or the clock but through them. The released libraries
+  replace the okay submodule: okay-scala, okay-simple's JSON, okay-mcp's
+  server. Every answer is the same as before on symdex's own code; new
+  tests run the tools against an index given and the index's building
+  against files in memory. A source's lines are read again when it changed
+  (they were kept for the server's lifetime).
 - TASTy spans are saved in `.symdex/tasty`, one file per class directory,
   and reused by the next process while that module's SemanticDB is
   unchanged. A cold command-line `callers` goes from 2.2 s to 0.8 s,

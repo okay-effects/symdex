@@ -56,9 +56,9 @@ sbt symdexIndex symdexMcp symdexHook "symdex references query=<something> caller
 7. A broken version is removed from `docs/` and the CHANGELOG says so; it is
    never overwritten in place (resolvers cache by version).
 
-## The okay submodule
+## The libraries
 
-symdex builds against okay as a submodule. Moving it (`cd okay && git
-checkout <sha>`, then commit the submodule) is part of a release when
-symdex needs something new from okay; okay changes land in okay first,
-under okay's own rules.
+symdex builds against released libraries (okay-scala, okay-simple's JSON,
+okay-mcp), from their maven repositories. Something symdex needs that is
+general lands in that library first, is released there, and symdex moves
+to the new version.

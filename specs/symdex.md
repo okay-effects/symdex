@@ -359,14 +359,20 @@ is effects, implementations are handlers, a program runs in one line.
 
 **Behaviour, checked by tests.**
 
-- [ ] every v0.6 answer unchanged on the fixtures (the 43 tests, ported)
-- [ ] a tool against `Code.fixed`: no disk, no compiler, no clock but a virtual one
-- [ ] the generation over `Disk.memory`: built, the same while nothing changed, rebuilt after a "compile" (a file's
+- [x] every v0.6 answer unchanged on the fixtures (the 43 tests, ported)
+- [x] a tool against `Code.fixed`: no disk, no compiler, no clock but a virtual one
+- [x] the generation over `Disk.memory`: built, the same while nothing changed, rebuilt after a "compile" (a file's
       time or size changed), a vanished file gone, an unreadable one reported
-- [ ] saved spans over `Disk.memory`: written once, read back under the same stamp, re-read under another
-- [ ] the server over a scripted link: initialize, the ten tools listed, a call answered, a missing argument an
+- [x] saved spans over `Disk.memory`: written once, read back under the same stamp, re-read under another
+- [x] the server over a scripted link: initialize, the ten tools listed, a call answered, a missing argument an
       `isError` answer, a lean narrowed list, an unknown tool refused
-- [ ] the hook's archive over `Disk.memory`: the output written whole, the 200 newest kept
+- [x] the hook's archive over `Disk.memory`: the output written whole, the 200 newest kept
+
+Measured after the rewrite (2026-10-29): `sbt test` 48 tests; on symdex's own code the 0.5.0 release and the
+rewrite give the same answer, byte for byte but for the age and token count in the header, for definition,
+references (callers, context), implementations, givens, members, modules, outline and source; the server over real
+stdio (initialize, tools/list, a call, an unknown tool) and the hook as a process (39 KB of `rg` in, a 4 KB digest
+out, the whole archived) as before.
 
 ## Where the general parts go
 
