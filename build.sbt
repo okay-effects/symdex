@@ -53,7 +53,7 @@ symdex / stage := {
       |here=$(cd "$(dirname "$0")/.." && pwd)
       |exec java -Xss8m ${SYMDEX_JAVA_OPTS:-} -cp "$here/lib/*" symdex.Symdex "$@"
       |""".stripMargin)
-  script.setExecutable(true)
+  script.setExecutable(true, false)
   val hook = out / "bin" / "symdex-hook"
   IO.write(hook,
     """#!/bin/sh
@@ -63,15 +63,20 @@ symdex / stage := {
       |here=$(cd "$(dirname "$0")/.." && pwd)
       |printf '%s' "$input" | exec "$here/bin/symdex" hook
       |""".stripMargin)
-  hook.setExecutable(true)
+  hook.setExecutable(true, false)
   out
 }
 
+/*
+ * The zip by the system's `zip`, which keeps a file's Unix mode: bin/symdex and bin/symdex-hook
+ * stay executable once unzipped (sbt's IO.zip drops the mode; 0.5.0 and 0.6.0 shipped them
+ * without it, and only the plugin, which sets it, could run them).
+ */
 symdex / dist := {
   val tree = (symdex / stage).value
   val zip = (symdex / target).value / s"symdex-${(symdex / version).value}.zip"
   IO.delete(zip)
-  val entries = (tree ** AllPassFilter).get.filter(_.isFile).map(f => f -> s"symdex/${IO.relativize(tree, f).get}")
-  IO.zip(entries, zip, None)
+  val code = scala.sys.process.Process(Seq("zip", "-qr", zip.getAbsolutePath, tree.getName), tree.getParentFile).!
+  if (code != 0) sys.error(s"zip failed ($code): the system's `zip` is needed for a release")
   zip
 }

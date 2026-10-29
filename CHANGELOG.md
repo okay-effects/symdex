@@ -11,6 +11,9 @@ the plugin's own version may run ahead of it.
 
 ## symdex 0.6.0 — 2026-10-29
 
+- The zip keeps the scripts executable (`bin/symdex`, `bin/symdex-hook`,
+  `rwxr-xr-x`): unzipped by hand, it runs as it is. 0.5.0 and the first
+  0.6.0 zip lost the mode, and only the plugin, which sets it, ran them.
 - On effects (specs/symdex.md, v0.7). Every tool is a program over `Code`
   (the codebase as compiled), `Archive` and `Clock`; `Code`'s handler is a
   program over `Disk`, `Tasty` and `Clock`. Nothing reaches the disk, the
