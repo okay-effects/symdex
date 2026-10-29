@@ -314,10 +314,64 @@ Refuted, measured:
   save the JVM, the scan and the parse (~1 s). Decided by measuring
   after this, if that second matters.
 
-## What goes into okay
+## v0.7 (2026-10-29): on effects
 
-- MCP server features the tools need (structured results, pagination).
-- The store, if okay's wins the storage measurement.
+The owner's question, 2026-10-29: «он сделан правильно? Он на эффектах или нет?» — it was not. okay gave symdex its
+MCP server and JSON codec, and the core (~2000 lines) reached the world itself: `java.nio.Files` in six of eleven
+files, `System.currentTimeMillis`, caches in `var`s under `synchronized`, TASTy read lazily from inside the index, a
+background thread; the tools were `Json => String`. Nothing of it could run without a disk, a compiler's output and
+a clock, and there was no point where what a tool reads is seen. The owner's rule for every program: the data model
+is effects, implementations are handlers, a program runs in one line.
+
+**The rewrite: the released libraries, the platform submodule gone.**
+
+- okay-scala 0.1.1 (Scala 3's effects, one CEK machine) for symdex's own effects; okay-simple's JSON value
+  (`okay-effects-json-value`); okay-mcp 0.1.0 (the MCP server as a program over a `Link` effect) run on the same
+  machine through okay-simple's `OnCek`. The `okay/` submodule and its ProjectRefs go.
+
+**Two levels of effects.**
+
+- What the TOOLS see — `Code`, the codebase as compiled: `Current` (the index, fresh), `Table(root)` (a SemanticDB
+  root's definition spans from TASTy or SCIP), `Lines(source)`, `Stale(generation)`, `Extensions` (extension methods
+  by receiver type), `Coverage` (what TASTy covers so far), `Warm` (every TASTy read now). And `Archive`
+  (`Put`/`Get`: what `more` pages, what the hook writes). And okay-scala's `Clock` (an answer's age).
+  Every tool is a program `String ! R` over them; the declaration (its schema) and the size budget (compressed,
+  paged) are programs too.
+- What the HANDLER of `Code` sees — the world: `Disk` (`List` a directory's entries, `Stat`, `Read`, `Write` a file
+  whole and atomically, `Remove`), `Tasty` (`Read` class directories: their definition spans), `Clock`. The scan, the
+  parse cache, the generation swap, the saved spans and the source-root search are one handler, `Code.compiled`, a
+  program over them; its state between calls is an object of its own (`Kept`, one per server), never a `var` in a
+  tool.
+
+**Handlers.**
+
+| effect | handlers |
+|---|---|
+| `Code` | `compiled(root, kept)` (over `Disk`, `Tasty`, `Clock`), `fixed(index, tables, lines)` (a test's: no disk) |
+| `Disk` | `real` (java.nio), `memory(files)` (a map of paths to bytes and times, written to as written) |
+| `Tasty` | `query` (tasty-query, a class directory at a time, in parallel for several), `given(reads)` |
+| `Archive` | `memory(store)` (64 answers, the oldest dropped), `files(dir)` (over `Disk`: `<id>.txt`, 200 kept) |
+| `Clock` | okay-scala's `system`, `virtual` |
+
+**The server.** okay-mcp's `Servers` on `OnCek`: initialize, `tools/list`, `tools/call`, ping, over `Link` —
+`stdio` in a process, `scripted` in a test. A call runs its tool's program with the server's handlers in one line;
+`--tools` and `--lean` narrow and shorten the list as before; an unknown tool is an `isError` answer.
+
+**Behaviour, checked by tests.**
+
+- [ ] every v0.6 answer unchanged on the fixtures (the 43 tests, ported)
+- [ ] a tool against `Code.fixed`: no disk, no compiler, no clock but a virtual one
+- [ ] the generation over `Disk.memory`: built, the same while nothing changed, rebuilt after a "compile" (a file's
+      time or size changed), a vanished file gone, an unreadable one reported
+- [ ] saved spans over `Disk.memory`: written once, read back under the same stamp, re-read under another
+- [ ] the server over a scripted link: initialize, the ten tools listed, a call answered, a missing argument an
+      `isError` answer, a lean narrowed list, an unknown tool refused
+- [ ] the hook's archive over `Disk.memory`: the output written whole, the 200 newest kept
+
+## Where the general parts go
+
+- MCP server features the tools need (structured results, pagination): okay-mcp.
+- JSON: okay-simple's value.
 - Nothing about TASTy or SemanticDB — that is symdex's.
 
 ## Decisions
@@ -326,7 +380,8 @@ Refuted, measured:
   (givens, extensions, opaque types, inline).
 - SCIP for other languages instead of writing analyzers.
 - Separate repository, okay as a submodule: symdex is a product on okay,
-  like okay-chat; it must not grow okay's build.
+  like okay-chat; it must not grow okay's build. Superseded by v0.7: the
+  released libraries (okay-scala, okay-simple's JSON, okay-mcp), no submodule.
 - v0 reads SemanticDB ONLY. The draft paired it with TASTy; on the
   fixtures and on okay, SemanticDB alone answered all seven tools:
   occurrences give definitions and references, SymbolInformation gives

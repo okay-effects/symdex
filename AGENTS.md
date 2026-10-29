@@ -1,11 +1,13 @@
 # Working in this repository (agents)
 
-- **okay is a submodule** (`okay/`, `git submodule update --init`). Its
-  modules are ProjectRefs in `build.sbt`. Anything symdex needs that is
-  general — MCP server features, a store, a codec, a TASTy-independent
-  graph — is built IN OKAY, in okay's repository under okay's rules
-  (okay/AGENTS.md), and the submodule is moved to it. symdex holds only what
-  is symdex's: the indexers, the schema, the tools.
+- **On the released effects libraries** (spec v0.7): okay-scala for symdex's
+  effects, okay-simple's JSON value, okay-mcp for the server, from their
+  maven repositories. The data model is effects, implementations are
+  handlers, a program runs in one line: a tool is a program over `Code`,
+  `Archive` and `Clock`, and nothing in it reaches the disk, the compiler's
+  output or the clock but through them. What is general (an MCP feature, a
+  codec) goes into those libraries; symdex holds only what is symdex's: the
+  indexers, the schema, the tools.
 - **Spec first** (`specs/`): a feature's spec is written and committed
   before its code; behaviour boxes are checked off as tests cover them;
   refuted alternatives are recorded in Decisions/Results.
