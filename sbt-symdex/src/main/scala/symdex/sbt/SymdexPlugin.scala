@@ -12,7 +12,7 @@ import sjsonnew.support.scalajson.unsafe.{Parser, PrettyPrinter}
  * Makes a build symdex-ready, end to end:
  *
  *   // project/plugins.sbt
- *   addSbtPlugin("io.github.sergey-scherbina" % "sbt-symdex" % "0.5.2")
+ *   addSbtPlugin("io.github.sergey-scherbina" % "sbt-symdex" % "0.6.0")
  *   // then, once:
  *   sbt symdexIndex symdexMcp symdexHook
  *   // and any time, from the sbt shell:
@@ -49,7 +49,7 @@ object SymdexPlugin extends AutoPlugin {
   import autoImport._
 
   /** the symdex release this plugin downloads (the plugin's own version may run ahead of it) */
-  val SymdexRelease = "0.5.0"
+  val SymdexRelease = "0.6.0"
 
   override def globalSettings: Seq[Setting[_]] = Seq(commands += symdexCommand)
 

@@ -3,7 +3,7 @@
 sbtPlugin := true
 name := "sbt-symdex"
 organization := "io.github.sergey-scherbina"
-version := "0.5.2"
+version := "0.6.0"
 licenses := Seq("Apache-2.0" -> url("https://www.apache.org/licenses/LICENSE-2.0"))
 scalacOptions ++= Seq("-deprecation", "-feature", "-Xfatal-warnings")
 

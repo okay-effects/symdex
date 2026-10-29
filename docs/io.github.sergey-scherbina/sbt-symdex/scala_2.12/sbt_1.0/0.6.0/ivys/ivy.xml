@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ivy-module version="2.0" xmlns:e="http://ant.apache.org/ivy/extra">
+  <info organisation="io.github.sergey-scherbina" module="sbt-symdex" revision="0.6.0" status="release" publication="20261029111409" e:sbtVersion="1.0" e:scalaVersion="2.12">
+    <description>sbt-symdex</description>
+  </info>
+  <configurations>
+    <conf name="plugin" visibility="public" description=""/>
+    <conf name="pom" visibility="public" description=""/>
+    <conf extends="runtime" name="test" visibility="public" description=""/>
+    <conf name="provided" visibility="public" description=""/>
+    <conf extends="compile,optional,provided" name="compile-internal" visibility="public" description=""/>
+    <conf name="docs" visibility="public" description=""/>
+    <conf name="optional" visibility="public" description=""/>
+    <conf name="compile" visibility="public" description=""/>
+    <conf extends="test,optional,provided" name="test-internal" visibility="public" description=""/>
+    <conf name="scala-repl-tool" visibility="public" description=""/>
+    <conf name="scala-tool" visibility="public" description=""/>
+    <conf name="scala-doc-tool" visibility="public" description=""/>
+    <conf name="sources" visibility="public" description=""/>
+    <conf extends="compile" name="runtime" visibility="public" description=""/>
+    <conf extends="runtime,optional" name="runtime-internal" visibility="public" description=""/>
+  </configurations>
+  <publications>
+    <artifact name="sbt-symdex" type="jar" ext="jar" conf="compile"/>
+    <artifact e:classifier="sources" name="sbt-symdex" type="src" ext="jar" conf="sources"/>
+    <artifact e:classifier="javadoc" name="sbt-symdex" type="doc" ext="jar" conf="docs"/>
+  </publications>
+  <dependencies>
+    <dependency org="org.scala-lang" name="scala-compiler" rev="2.12.21" conf="scala-tool->default"> </dependency>
+    <dependency org="org.scala-lang" name="scala-compiler" rev="2.12.21" conf="scala-tool->optional(default)"> </dependency>
+    <dependency org="org.scala-lang" name="scala-library" rev="2.12.21" conf="scala-tool->default"> </dependency>
+    <dependency org="org.scala-lang" name="scala-library" rev="2.12.21" conf="scala-tool->optional(default)"> </dependency>
+    <dependency org="org.scala-sbt" name="sbt" rev="1.13.0" conf="provided->default(runtime)"> </dependency>
+    <dependency org="org.scala-lang" name="scala-library" rev="2.12.21" conf="provided->default(runtime)"> </dependency>
+  </dependencies>
+</ivy-module>

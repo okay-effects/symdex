@@ -25,7 +25,7 @@ Every example below is real output, over the okay library.
 
 ```scala
 resolvers += Resolver.url("symdex", url("https://okay-effects.github.io/symdex"))(Resolver.ivyStylePatterns)
-addSbtPlugin("io.github.sergey-scherbina" % "sbt-symdex" % "0.5.2")
+addSbtPlugin("io.github.sergey-scherbina" % "sbt-symdex" % "0.6.0")
 ```
 
 Then, once:
@@ -313,7 +313,7 @@ Installed by `sbt symdexHook`, or in `.claude/settings.json` /
 
 ```json
 {"hooks": {"PostToolUse": [{"matcher": "Bash|Grep",
-  "hooks": [{"type": "command", "command": "/Users/you/.symdex/0.5.0/symdex/bin/symdex-hook"}]}]}}
+  "hooks": [{"type": "command", "command": "/Users/you/.symdex/0.6.0/symdex/bin/symdex-hook"}]}]}}
 ```
 
 ## 6. Freshness and coverage

@@ -75,7 +75,7 @@ In the project, `project/plugins.sbt`:
 
 ```scala
 resolvers += Resolver.url("symdex", url("https://okay-effects.github.io/symdex"))(Resolver.ivyStylePatterns)
-addSbtPlugin("io.github.sergey-scherbina" % "sbt-symdex" % "0.5.2")
+addSbtPlugin("io.github.sergey-scherbina" % "sbt-symdex" % "0.6.0")
 ```
 
 then, once:
@@ -113,7 +113,7 @@ are never touched. In `.claude/settings.json`:
 
 ```json
 {"hooks": {"PostToolUse": [{"matcher": "Bash|Grep",
-  "hooks": [{"type": "command", "command": "/Users/you/.symdex/0.5.0/symdex/bin/symdex-hook"}]}]}}
+  "hooks": [{"type": "command", "command": "/Users/you/.symdex/0.6.0/symdex/bin/symdex-hook"}]}]}}
 ```
 
 `rg -n answered` over okay: 167 409 characters in, 4 745 out.
