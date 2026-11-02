@@ -30,6 +30,10 @@ sbt symdexIndex symdexMcp symdexHook "symdex references query=<something> caller
    gh release create v<version> target/symdex-<version>.zip --title "symdex <version>" --notes "…"
    ```
 
+5. Point the manifest at it — `docs/latest.json` (GitHub Pages: https://okay-effects.github.io/symdex/latest.json),
+   which okay-agent reads to install symdex and keep it up to date: `version`, `zip` (the release's URL), `sha256`
+   (`shasum -a 256 target/symdex-<version>.zip`), `java` (the oldest Java it runs on). Commit and push.
+
 5. Add the release to CHANGELOG.md.
 
 ## sbt-symdex
