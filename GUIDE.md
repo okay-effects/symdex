@@ -43,7 +43,13 @@ sbt symdexIndex symdexMcp symdexHook
 - `symdexHook` adds the output-digesting hook (section 5) to
   `.claude/settings.local.json`.
 
-The plugin downloads symdex itself, once, into `~/.symdex/<version>`. Both
+The plugin downloads symdex itself, once, into `~/.symdex/<version>`, and
+points `~/.symdex/current` at it (forward only — never back to an older
+release). The files it writes name `~/.symdex/current/symdex/bin/…`, so a
+newer release reaches every project at its next session, the files
+unchanged; a path it wrote before, into `~/.symdex/<version>/`, it rewrites
+to that one. okay-agent installs and updates symdex the same way, from
+https://okay-effects.github.io/symdex/latest.json. Both
 files are merged into, never overwritten. From then on, compiling is all
 it takes: symdex sees a compile from the SemanticDB it rewrites.
 
@@ -313,7 +319,7 @@ Installed by `sbt symdexHook`, or in `.claude/settings.json` /
 
 ```json
 {"hooks": {"PostToolUse": [{"matcher": "Bash|Grep",
-  "hooks": [{"type": "command", "command": "/Users/you/.symdex/0.6.0/symdex/bin/symdex-hook"}]}]}}
+  "hooks": [{"type": "command", "command": "/Users/you/.symdex/current/symdex/bin/symdex-hook"}]}]}}
 ```
 
 ## 6. Freshness and coverage

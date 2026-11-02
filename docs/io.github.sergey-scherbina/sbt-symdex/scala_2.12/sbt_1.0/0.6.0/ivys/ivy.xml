@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <ivy-module version="2.0" xmlns:e="http://ant.apache.org/ivy/extra">
-  <info organisation="io.github.sergey-scherbina" module="sbt-symdex" revision="0.6.0" status="release" publication="20261029111409" e:sbtVersion="1.0" e:scalaVersion="2.12">
+  <info organisation="io.github.sergey-scherbina" module="sbt-symdex" revision="0.6.0" status="release" publication="20261102145508" e:sbtVersion="1.0" e:scalaVersion="2.12">
     <description>sbt-symdex</description>
   </info>
   <configurations>

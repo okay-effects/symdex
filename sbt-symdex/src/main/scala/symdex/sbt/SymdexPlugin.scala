@@ -84,13 +84,21 @@ object SymdexPlugin extends AutoPlugin {
       val args = Seq("serve", "--root", ".") ++
         (if (symdexTools.value.isEmpty) Nil else Seq("--tools", symdexTools.value.mkString(","))) ++
         (if (symdexLean.value) Seq("--lean") else Nil)
-      val server = obj("command" -> JString(symdexLauncher.value.getAbsolutePath),
-        "args" -> JArray(args.map(a => JString(a): JValue).toArray))
+      // the stable path (~/.symdex/current/…): written once, an update reaches the project at its next session
+      val command = symdexLauncher.value.getAbsolutePath
+      val server = obj("command" -> JString(command), "args" -> JArray(args.map(a => JString(a): JValue).toArray))
       val file = (ThisBuild / baseDirectory).value / ".mcp.json"
       merge(file, log, "mcpServers.symdex") { root =>
         val servers = field(root, "mcpServers").collect { case o: JObject => o }.getOrElse(obj())
-        if (field(servers, "symdex").isDefined) None
-        else Some(put(root, "mcpServers", put(servers, "symdex", server)))
+        field(servers, "symdex") match {
+          // an entry this plugin wrote before, into ~/.symdex/<version>/: the stable path in its place
+          case Some(old: JObject) => field(old, "command").collect { case JString(c) if versioned(c) => c } match {
+            case Some(_) => Some(put(root, "mcpServers", put(servers, "symdex", put(old, "command", JString(command)))))
+            case None => None
+          }
+          case Some(_) => None
+          case None => Some(put(root, "mcpServers", put(servers, "symdex", server)))
+        }
       }
       file
     },
@@ -104,7 +112,14 @@ object SymdexPlugin extends AutoPlugin {
       merge(file, log, "hooks.PostToolUse[symdex-hook]") { root =>
         val hooks = field(root, "hooks").collect { case o: JObject => o }.getOrElse(obj())
         val post = field(hooks, "PostToolUse").collect { case JArray(xs) => xs.toVector }.getOrElse(Vector.empty)
-        if (post.exists(e => PrettyPrinter(e).contains("symdex-hook"))) None
+        val stale = """[^"]*/\.symdex/\d[^/"]*/symdex/bin/symdex-hook""".r
+        if (post.exists(e => stale.findFirstIn(PrettyPrinter(e)).isDefined)) {
+          // a hook this plugin wrote before, into ~/.symdex/<version>/: the stable path in its place
+          val mended = post.map(e => Parser.parseUnsafe(stale.replaceAllIn(PrettyPrinter(e),
+            java.util.regex.Matcher.quoteReplacement(hook.getAbsolutePath))))
+          Some(put(root, "hooks", put(hooks, "PostToolUse", JArray(mended.toArray))))
+        }
+        else if (post.exists(e => PrettyPrinter(e).contains("symdex-hook"))) None
         else Some(put(root, "hooks", put(hooks, "PostToolUse", JArray((post :+ (entry: JValue)).toArray))))
       }
       file
@@ -123,7 +138,30 @@ object SymdexPlugin extends AutoPlugin {
   private def run(launcher: File, args: Seq[String]): String =
     Process(launcher.getAbsolutePath +: args).!!.stripLineEnd
 
-  /** bin/symdex from the home given, else from the release, downloaded and unpacked once */
+  /** a path into ~/.symdex/<version>/: one this plugin wrote before the stable path */
+  def versioned(path: String): Boolean = path.matches(""".*/\.symdex/\d[^/]*/symdex/bin/symdex""")
+
+  /** a release as numbers, to compare */
+  private def numbers(v: String): (Int, Int, Int) = {
+    val n = v.split('.').map(_.takeWhile(_.isDigit)).map(x => if (x.isEmpty) 0 else x.toInt)
+    (n.lift(0).getOrElse(0), n.lift(1).getOrElse(0), n.lift(2).getOrElse(0))
+  }
+
+  /** ~/.symdex/current pointed at `version`, if it points at nothing or at an older release: forward only */
+  def advance(symdexDir: File, version: String): Unit = {
+    import java.nio.file.{Files, StandardCopyOption}
+    val current = (symdexDir / "current").toPath
+    val now = if (Files.isSymbolicLink(current)) Some(Files.readSymbolicLink(current).getFileName.toString) else None
+    if (now.forall(n => Ordering[(Int, Int, Int)].lt(numbers(n), numbers(version)) || !Files.exists(current))) {
+      val tmp = (symdexDir / s".current-$version").toPath
+      Files.deleteIfExists(tmp)
+      Files.createSymbolicLink(tmp, java.nio.file.Paths.get(version))
+      Files.move(tmp, current, StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING)
+    }
+  }
+
+  /** bin/symdex from the home given, else the release's — downloaded and unpacked once — by the stable path,
+   * ~/.symdex/current (pointed at it if it pointed at nothing older) */
   def launcher(home: Option[File], version: String, log: Logger): File =
     home match {
       case Some(h) =>
@@ -143,7 +181,8 @@ object SymdexPlugin extends AutoPlugin {
           }
           (dir / "symdex" / "bin").listFiles().foreach(_.setExecutable(true))
         }
-        l
+        advance(file(sys.props("user.home")) / ".symdex", version)
+        file(sys.props("user.home")) / ".symdex" / "current" / "symdex" / "bin" / "symdex"
     }
 
   // ---- JSON: merged into, never overwritten -----------------------------

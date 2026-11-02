@@ -212,6 +212,20 @@ a hand-checked answer).
 - [x] Published without Maven Central: the plugin as an Ivy repository on
       GitHub Pages, served from `docs/` on master (RELEASING.md).
 
+## The stable path (2026-11-02): projects' files never go stale
+
+Before, `symdexMcp` / `symdexHook` wrote `~/.symdex/<version>/symdex/bin/…` into a project's `.mcp.json` and
+`.claude/settings.local.json`: a release later, every project still ran the old one (or, the old directory removed,
+nothing), and running `symdexMcp` again did not mend it — an existing entry is kept.
+
+- [x] `~/.symdex/current`: a symbolic link to the newest release installed. Whoever installs a release — this plugin
+      (its `symdexVersion`, when missing) or okay-agent (from `docs/latest.json`, once a day) — points it at the new
+      one, forward only: never back to an older release than it points at.
+- [x] `symdexMcp` / `symdexHook` write `~/.symdex/current/symdex/bin/symdex` (and `symdex-hook`) — the files written
+      once, an update reaching every project at its next session. With `symdexHome` set, that path as it is.
+- [x] An entry this plugin wrote before — a path into `~/.symdex/<version>/` — is rewritten to the stable one; any
+      other entry is the owner's and kept.
+
 Decisions:
 
 - NOT run inside sbt: an MCP server speaks on the stdin/stdout of a process

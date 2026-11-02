@@ -5,9 +5,13 @@ released as a zip on GitHub) and **sbt-symdex** (the sbt plugin, served from
 GitHub Pages). A plugin release names the symdex release it downloads;
 the plugin's own version may run ahead of it.
 
-## sbt-symdex 0.6.0 — 2026-10-29
+## sbt-symdex 0.6.0 — 2026-10-29, republished 2026-11-02
 
 - Downloads symdex 0.6.0 (on effects).
+- The stable path: `~/.symdex/current` points at the newest release installed (forward only); `symdexMcp` and
+  `symdexHook` write `~/.symdex/current/symdex/bin/…`, so a project's files never go stale, and rewrite a path they
+  wrote before (into `~/.symdex/<version>/`) to it. `docs/latest.json` on Pages names the latest release for
+  okay-agent, which installs and updates symdex from it.
 
 ## symdex 0.6.0 — 2026-10-29
 
