@@ -64,4 +64,7 @@ class TestEquivalent extends munit.FunSuite:
     val text = "package a\nimport b.c\nobject O:\n  def f(x: Int): Int =\n    x + 1\n\n  def g = 2\n"
     assertEquals(Equivalence.definitionIn(text, "O", "f"), Right("  def f(x: Int): Int =\n    x + 1"))
     assert(Equivalence.definitionIn(text, "O", "h").isLeft)
+    val braces = "object O:\n  def q(s: String): String = s.flatMap {\n    case c => c.toString\n  } + \"!\"\n  def r = 1\n"
+    assertEquals(Equivalence.definitionIn(braces, "O", "q"),
+      Right("  def q(s: String): String = s.flatMap {\n    case c => c.toString\n  } + \"!\""))
     assertEquals(Equivalence.header(text), Vector("package a", "import b.c"))

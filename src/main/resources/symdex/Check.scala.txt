@@ -16,12 +16,14 @@ object Gen:
   given Gen[Int] = of(_ => LazyList(0, 1, -1, 2, -2, 3, Int.MaxValue, Int.MinValue), (r, s) => r.between(-s * 10, s * 10 + 1))
   given Gen[Long] = of(_ => LazyList(0L, 1L, -1L, 2L, Long.MaxValue, Long.MinValue), (r, s) => r.between(-s * 10L, s * 10L + 1))
   given Gen[BigDecimal] = of(_ => LazyList(BigDecimal(0), BigDecimal(1), BigDecimal(-1), BigDecimal("0.5"), BigDecimal("19.99")),
-    (r, s) => BigDecimal(r.between(-s * 1000, s * 1000 + 1)) / 100)
+    (r, s) => BigDecimal(r.between(-s * 1000, s * 1000 + 1)) / (if r.nextBoolean() then 100 else 1000))
   given Gen[Double] = of(_ => LazyList(0.0, 1.0, -1.0, 0.5), (r, s) => r.between(-s * 10.0, s * 10.0))
   given Gen[Boolean] = of(_ => LazyList(false, true), (r, _) => r.nextBoolean())
   given Gen[Char] = of(_ => LazyList('a', 'b', ' ', '0'), (r, _) => ('a' + r.nextInt(26)).toChar)
   given Gen[String] = of(s => LazyList("", "a", "ab", "aa", " ", "A").take(s + 2),
-    (r, s) => List.fill(r.nextInt(s + 3))(('a' + r.nextInt(3)).toChar).mkString)
+    (r, s) => List.fill(r.nextInt(s + 3))(chars(r.nextInt(chars.length))).mkString)
+  /** random strings: letters, digits, and the separators code splits and escapes by */
+  private val chars = "abc01 /.,:@-\"\\\n"
   given [A](using a: Gen[A]): Gen[Option[A]] = of(s => None #:: a.small(s - 1).map(Some(_)),
     (r, s) => if r.nextInt(4) == 0 then None else Some(a.random(r, s)))
   private def lists[A](a: Gen[A], s: Int): LazyList[List[A]] =
@@ -66,10 +68,16 @@ object Gen:
     case _: (h *: t) => summonInline[Gen[h]].asInstanceOf[Gen[Any]] :: gens[t]
 
 object Check:
+  private def escape(c: Char): String = c match
+    case '"' => "\\\""
+    case '\\' => "\\\\"
+    case '\n' => "\\n"
+    case '\'' => "\\'"
+    case c => c.toString
   /** a value as Scala writes it: a text quoted, its parts too */
   def show(x: Any): String = x match
-    case s: String => "\"" + s + "\""
-    case c: Char => s"'$c'"
+    case s: String => "\"" + s.flatMap(escape) + "\""
+    case c: Char => "'" + escape(c) + "'"
     case m: Map[?, ?] => m.iterator.map((k, v) => s"${show(k)} -> ${show(v)}").mkString("Map(", ", ", ")")
     case xs: List[?] => xs.map(show).mkString("List(", ", ", ")")
     case xs: Vector[?] => xs.map(show).mkString("Vector(", ", ", ")")

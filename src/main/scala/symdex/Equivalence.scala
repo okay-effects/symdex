@@ -63,7 +63,12 @@ object Equivalence:
         case Vector() => Left(s"no def $name in that version")
         case Vector(start) =>
           val base = indent(lines(start))
-          val body = lines.drop(start + 1).takeWhile(l => l.trim.isEmpty || indent(l) > base)
+          // the body: deeper lines (or blank), and the lines at the def's own indentation that close its brackets
+          def inBody(l: String) = l.trim.isEmpty || indent(l) > base
+          def closing(l: String) = indent(l) == base && l.trim.headOption.exists(c => c == '}' || c == ')' || c == ']')
+          val body = lines.drop(start + 1).foldLeft((Vector.empty[String], true)) { case ((got, open), l) =>
+            if open && (inBody(l) || closing(l)) then (got :+ l, true) else (got, false)
+          }._1
           val all = (lines(start) +: body).reverse.dropWhile(_.trim.isEmpty).reverse
           Right(all.map(l => if l.trim.isEmpty then "" else "  " + l.drop(base)).mkString("\n"))
         case _ => Left(s"def $name is overloaded in that version: compare one by another definition")
