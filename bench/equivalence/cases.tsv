@@ -1,0 +1,44 @@
+id	file	definition	truth	kind	witness	note
+1	Escape	Escape.quote	safe	replace order	-	backslashes doubled first, then quotes escaped: the same as per-character escaping
+2	JsonText	JsonText.str	unsafe	replace order	"\""	quotes escaped first, then their backslashes doubled
+3	Paths	Paths.relative	unsafe	prefix without separator	"a", "ab"	"ab" does not start with "a/"
+4	Orders	Orders.total	safe	sum as fold	-	BigDecimal addition from zero, left to right, both
+5	Config	Config.firstPort	safe	headOption as isEmpty/head	-	
+6	Routes	Routes.primary	unsafe	find as headOption	List("", "a")	find looks past the first
+7	Tags	Tags.parse	unsafe	None vs empty	Some("")	"".split gives one empty part, no longer filtered
+8	Users	Users.display	unsafe	for-comprehension drops a branch	Some("a"), None	the first name alone is lost
+9	Settings	Settings.timeout	safe	Either chain as match	-	the same three errors in the same order
+10	Segments	Segments.join	unsafe	foldLeft vs foldRight	List("a", "")	an empty last part: "a/" vs "a"
+11	Sums	Sums.total	safe	foldLeft vs foldRight	-	Int addition is associative and commutative (modulo 2^32)
+12	Recipients	Recipients.unique	unsafe	Set vs List order	List("a", "b", "c", "d", "e", "f")	a Set of more than four is a HashSet: its order is not the input order
+13	Labels	Labels.count	safe	distinct vs toSet	-	
+14	Ratio	Ratio.safeDiv	safe	Option.when	-	Option.when takes its value by name
+15	Stats	Stats.average	unsafe	strictness	List()	the division moved before the check: throws on Nil
+16	Ranges	Ranges.mid	unsafe	overflow and rounding	-1, 0	(-1 + 0) / 2 = 0, -1 + 1 / 2 = -1
+17	Bounds	Bounds.clamp	unsafe	min/max order	0, 1, 0	lo > hi
+18	Money	Money.cents	unsafe	rounding	BigDecimal("0.005")	truncation instead of half-up
+19	Inventory	Inventory.merge	safe	fold as ++	-	each key of b once, added to a's count
+20	Headers	Headers.effective	unsafe	map priority	Map("a" -> ""), Map("a" -> "a")	the right side of ++ wins
+21	Lines	Lines.indent	unsafe	takeWhile vs indexWhere	""	-1 when there is no non-space
+22	Signup	Signup.check	unsafe	order of checks	-1, ""	both invalid: the other error
+23	Access	Access.allowed	safe	|| operands swapped	-	pure operands
+24	Editing	Editing.canEdit	safe	De Morgan	-	
+25	Listing	Listing.visible	unsafe	De Morgan wrong	true, false	
+26	Words	Words.count	unsafe	empty parts	""	"".split(" ") is one empty part
+27	Versions	Versions.compare	unsafe	zipAll padding	List(1), List(1, 0)	a missing part is not a zero
+28	Report	Report.range	unsafe	exception vs value	List()	min of Nil throws
+29	Codes	Codes.parse	safe	Try(toInt) vs toIntOption	-	the same strings parse
+30	Dedupe	Dedupe.index	unsafe	last wins vs first wins	List(("a", 0), ("a", 1))	toMap keeps the last
+31	Search	Search.firstBig	safe	find vs filter.headOption	-	pure predicate
+32	Window	Window.pairs	safe	zip vs sliding	-	sliding of one element yields one group, not matched
+33	Grades	Grades.letter	unsafe	thresholds by division	110	11 matches no case
+34	Ids	Ids.next	safe	pigeonhole bound	-	n used values leave one of 1..n+1 free
+35	Batch	Batch.chunks	unsafe	exception vs value	List(), 0	grouped(0) throws
+36	Merge	Merge.sorted	safe	operands swapped before sort	-	equal Ints are indistinguishable
+37	Tasks	Tasks.ordered	unsafe	stable sort ties	List(Task("", 0)), List(Task("a", 0))	sortBy is stable: ties keep the concatenation order
+38	Emails	Emails.domain	unsafe	split vs indexOf	"a@"	split drops a trailing empty part
+39	Initials	Initials.of	safe	take(1) vs headOption	-	
+40	Lasts	Lasts.lastOr	safe	lastOption as fold	-	
+41	Fallback	Fallback.pick	safe	orElse as ++ headOption	-	
+42	Parsed	Parsed.all	safe	traverse as collectFirst	-	the first Left from the left, else all Rights
+43	Pages	Pages.count	unsafe	exception vs value	0, 0	integer division by zero throws; ceil of NaN is 0

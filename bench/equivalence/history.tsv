@@ -1,0 +1,87 @@
+when	arm	model	id	truth	verdict	input	counterexample	seconds	note
+2026-11-04T00:17:22	tool	-	1	safe	none		-	1.7	{"error":"\u001b[31m10 |\u001b[0m\u001b[32m@main\u001b[0m \u001b[33mdef\u001b[0m \u001b[36msymdexEquivalent\u001b[0m(): \u001b[32mUnit\u001b[0m = println(okay.symdex.check.\u001b[33mCheck\u001b[0m.com
+2026-11-04T00:17:22	tool	-	2	unsafe	none		-	1.4	{"error":"\u001b[31m10 |\u001b[0m\u001b[32m@main\u001b[0m \u001b[33mdef\u001b[0m \u001b[36msymdexEquivalent\u001b[0m(): \u001b[32mUnit\u001b[0m = println(okay.symdex.check.\u001b[33mCheck\u001b[0m.com
+2026-11-04T00:17:22	tool	-	3	unsafe	unsafe	("a", "a")	differ	2.2	
+2026-11-04T00:17:22	tool	-	4	safe	safe		-	2.5	
+2026-11-04T00:17:22	tool	-	5	safe	safe		-	2.3	
+2026-11-04T00:17:22	tool	-	6	unsafe	unsafe	List("", "a")	differ	2.1	
+2026-11-04T00:17:22	tool	-	7	unsafe	unsafe	Some("")	differ	2.2	
+2026-11-04T00:17:22	tool	-	8	unsafe	unsafe	(Some(""), None)	differ	2.1	
+2026-11-04T00:17:22	tool	-	9	safe	safe		-	2.3	
+2026-11-04T00:17:22	tool	-	10	unsafe	unsafe	List("", "a")	differ	2.3	
+2026-11-04T00:17:22	tool	-	11	safe	safe		-	2.2	
+2026-11-04T00:17:22	tool	-	12	unsafe	unsafe	List("abbbb", "", "aaaa", "bbaa", "abc")	differ	2.2	
+2026-11-04T00:17:22	tool	-	13	safe	safe		-	2.1	
+2026-11-04T00:17:22	tool	-	14	safe	safe		-	2.2	
+2026-11-04T00:17:22	tool	-	15	unsafe	unsafe	List()	differ	2.1	
+2026-11-04T00:17:22	tool	-	16	unsafe	unsafe	(1, 0)	differ	2.1	
+2026-11-04T00:17:22	tool	-	17	unsafe	unsafe	(0, 0, -1)	differ	2.1	
+2026-11-04T00:17:22	tool	-	18	unsafe	safe		-	2.1	
+2026-11-04T00:17:22	tool	-	19	safe	safe		-	2.2	
+2026-11-04T00:17:22	tool	-	20	unsafe	unsafe	(Map("" -> ""), Map("" -> "a"))	differ	2.2	
+2026-11-04T00:17:22	tool	-	21	unsafe	unsafe	""	differ	2.1	
+2026-11-04T00:17:22	tool	-	22	unsafe	unsafe	(-1, "")	differ	2.1	
+2026-11-04T00:17:22	tool	-	23	safe	safe		-	2.1	
+2026-11-04T00:17:22	tool	-	24	safe	safe		-	2.1	
+2026-11-04T00:17:22	tool	-	25	unsafe	unsafe	(false, true)	differ	2.1	
+2026-11-04T00:17:22	tool	-	26	unsafe	unsafe	""	differ	2.1	
+2026-11-04T00:17:22	tool	-	27	unsafe	unsafe	(List(), List(0))	differ	2.2	
+2026-11-04T00:17:22	tool	-	28	unsafe	unsafe	List()	differ	2.1	
+2026-11-04T00:17:22	tool	-	29	safe	safe		-	2.1	
+2026-11-04T00:17:22	tool	-	30	unsafe	unsafe	List(("", 0), ("", 1))	differ	2.2	
+2026-11-04T00:17:22	tool	-	31	safe	safe		-	2.1	
+2026-11-04T00:17:22	tool	-	32	safe	safe		-	2.2	
+2026-11-04T00:17:22	tool	-	33	unsafe	unsafe	2147483647	differ	2.1	
+2026-11-04T00:17:22	tool	-	34	safe	safe		-	2.2	
+2026-11-04T00:17:22	tool	-	35	unsafe	unsafe	(List(), 0)	differ	2.2	
+2026-11-04T00:17:22	tool	-	36	safe	safe		-	2.2	
+2026-11-04T00:17:22	tool	-	37	unsafe	unsafe	(List(Task("", 0)), List(Task("a", 0)))	differ	2.2	
+2026-11-04T00:17:22	tool	-	38	unsafe	safe		-	2.2	
+2026-11-04T00:17:22	tool	-	39	safe	safe		-	2.2	
+2026-11-04T00:17:22	tool	-	40	safe	safe		-	2.2	
+2026-11-04T00:17:22	tool	-	41	safe	safe		-	2.2	
+2026-11-04T00:17:22	tool	-	42	safe	safe		-	2.2	
+2026-11-04T00:17:22	tool	-	43	unsafe	unsafe	(0, 0)	differ	2.1	
+2026-11-04T00:22:34	tool	-	1	safe	safe		-	2.2	
+2026-11-04T00:22:34	tool	-	2	unsafe	unsafe	"\""	differ	2.2	
+2026-11-04T00:22:34	tool	-	3	unsafe	unsafe	("a", "a")	differ	2.2	
+2026-11-04T00:22:34	tool	-	4	safe	safe		-	2.3	
+2026-11-04T00:22:34	tool	-	5	safe	safe		-	2.3	
+2026-11-04T00:22:34	tool	-	6	unsafe	unsafe	List("", "a")	differ	2.4	
+2026-11-04T00:22:34	tool	-	7	unsafe	unsafe	Some("")	differ	2.4	
+2026-11-04T00:22:34	tool	-	8	unsafe	unsafe	(Some(""), None)	differ	2.4	
+2026-11-04T00:22:34	tool	-	9	safe	safe		-	2.3	
+2026-11-04T00:22:34	tool	-	10	unsafe	unsafe	List("", "a")	differ	2.2	
+2026-11-04T00:22:34	tool	-	11	safe	safe		-	2.2	
+2026-11-04T00:22:34	tool	-	12	unsafe	unsafe	List("a1@1\\", "", ":a\"0", "@./0", ":.\n")	differ	2.2	
+2026-11-04T00:22:34	tool	-	13	safe	safe		-	2.2	
+2026-11-04T00:22:34	tool	-	14	safe	safe		-	2.3	
+2026-11-04T00:22:34	tool	-	15	unsafe	unsafe	List()	differ	2.2	
+2026-11-04T00:22:34	tool	-	16	unsafe	unsafe	(1, 0)	differ	2.2	
+2026-11-04T00:22:34	tool	-	17	unsafe	unsafe	(0, 0, -1)	differ	2.1	
+2026-11-04T00:22:34	tool	-	18	unsafe	unsafe	0.407	differ	2.1	
+2026-11-04T00:22:34	tool	-	19	safe	safe		-	2.2	
+2026-11-04T00:22:34	tool	-	20	unsafe	unsafe	(Map("" -> ""), Map("" -> "a"))	differ	2.2	
+2026-11-04T00:22:34	tool	-	21	unsafe	unsafe	""	differ	2.2	
+2026-11-04T00:22:34	tool	-	22	unsafe	unsafe	(-1, "")	differ	2.2	
+2026-11-04T00:22:34	tool	-	23	safe	safe		-	2.2	
+2026-11-04T00:22:34	tool	-	24	safe	safe		-	2.2	
+2026-11-04T00:22:34	tool	-	25	unsafe	unsafe	(false, true)	differ	2.2	
+2026-11-04T00:22:34	tool	-	26	unsafe	unsafe	""	differ	2.2	
+2026-11-04T00:22:34	tool	-	27	unsafe	unsafe	(List(), List(0))	differ	2.2	
+2026-11-04T00:22:34	tool	-	28	unsafe	unsafe	List()	differ	2.2	
+2026-11-04T00:22:34	tool	-	29	safe	safe		-	2.2	
+2026-11-04T00:22:34	tool	-	30	unsafe	unsafe	List(("", 0), ("", 1))	differ	2.2	
+2026-11-04T00:22:34	tool	-	31	safe	safe		-	2.2	
+2026-11-04T00:22:34	tool	-	32	safe	safe		-	2.2	
+2026-11-04T00:22:34	tool	-	33	unsafe	unsafe	2147483647	differ	2.1	
+2026-11-04T00:22:34	tool	-	34	safe	safe		-	2.2	
+2026-11-04T00:22:34	tool	-	35	unsafe	unsafe	(List(), 0)	differ	2.2	
+2026-11-04T00:22:34	tool	-	36	safe	safe		-	2.2	
+2026-11-04T00:22:34	tool	-	37	unsafe	unsafe	(List(Task("", 0)), List(Task("a", 0)))	differ	2.2	
+2026-11-04T00:22:34	tool	-	38	unsafe	unsafe	"a:@@0/"	differ	2.4	
+2026-11-04T00:22:34	tool	-	39	safe	safe		-	2.9	
+2026-11-04T00:22:34	tool	-	40	safe	safe		-	2.3	
+2026-11-04T00:22:34	tool	-	41	safe	safe		-	2.3	
+2026-11-04T00:22:34	tool	-	42	safe	safe		-	2.2	
+2026-11-04T00:22:34	tool	-	43	unsafe	unsafe	(0, 0)	differ	2.1	

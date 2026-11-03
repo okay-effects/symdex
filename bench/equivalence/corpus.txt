@@ -1,0 +1,359 @@
+=== Escape
+--- before
+object Escape:
+  def quote(s: String): String = "\"" + s.flatMap {
+    case '"' => "\\\""
+    case '\\' => "\\\\"
+    case c => c.toString
+  } + "\""
+--- after
+object Escape:
+  def quote(s: String): String = "\"" + s.replace("\\", "\\\\").replace("\"", "\\\"") + "\""
+=== JsonText
+--- before
+object JsonText:
+  def str(s: String): String = "\"" + s.flatMap {
+    case '\\' => "\\\\"
+    case '"' => "\\\""
+    case c => c.toString
+  } + "\""
+--- after
+object JsonText:
+  def str(s: String): String = "\"" + s.replace("\"", "\\\"").replace("\\", "\\\\") + "\""
+=== Paths
+--- before
+object Paths:
+  /** a path as the index names a file: relative to the project's root */
+  def relative(root: String, path: String): String =
+    val r = root.stripSuffix("/") + "/"
+    if path.startsWith(r) then path.drop(r.length) else path.stripPrefix("./")
+--- after
+object Paths:
+  /** a path as the index names a file: relative to the project's root */
+  def relative(root: String, path: String): String =
+    if path.startsWith(root) then path.drop(root.length).stripPrefix("/") else path.stripPrefix("./")
+=== Orders
+--- before
+final case class Line(sku: String, qty: Int, price: BigDecimal)
+
+object Orders:
+  def total(lines: List[Line]): BigDecimal = lines.map(l => l.price * l.qty).sum
+--- after
+final case class Line(sku: String, qty: Int, price: BigDecimal)
+
+object Orders:
+  def total(lines: List[Line]): BigDecimal = lines.foldLeft(BigDecimal(0))((acc, l) => acc + l.price * l.qty)
+=== Config
+--- before
+object Config:
+  def firstPort(ports: List[Int]): Int = ports.headOption.getOrElse(8080)
+--- after
+object Config:
+  def firstPort(ports: List[Int]): Int = if ports.isEmpty then 8080 else ports.head
+=== Routes
+--- before
+object Routes:
+  def primary(hosts: List[String]): Option[String] = hosts.find(_.nonEmpty)
+--- after
+object Routes:
+  def primary(hosts: List[String]): Option[String] = hosts.headOption.filter(_.nonEmpty)
+=== Tags
+--- before
+object Tags:
+  def parse(s: Option[String]): List[String] = s.toList.flatMap(_.split(',').map(_.trim).filter(_.nonEmpty))
+--- after
+object Tags:
+  def parse(s: Option[String]): List[String] = s.map(_.split(',').map(_.trim).toList).getOrElse(Nil)
+=== Users
+--- before
+object Users:
+  def display(first: Option[String], last: Option[String]): Option[String] =
+    first.map(f => last.fold(f)(l => s"$f $l"))
+--- after
+object Users:
+  def display(first: Option[String], last: Option[String]): Option[String] =
+    for f <- first; l <- last yield s"$f $l"
+=== Settings
+--- before
+object Settings:
+  def timeout(raw: Option[String]): Either[String, Int] =
+    raw.toRight("missing").flatMap(s => s.toIntOption.toRight(s"bad: $s")).filterOrElse(_ > 0, "not positive")
+--- after
+object Settings:
+  def timeout(raw: Option[String]): Either[String, Int] = raw match
+    case None => Left("missing")
+    case Some(s) => s.toIntOption match
+      case Some(n) if n > 0 => Right(n)
+      case Some(_) => Left("not positive")
+      case None => Left(s"bad: $s")
+=== Segments
+--- before
+object Segments:
+  def join(parts: List[String]): String =
+    parts.foldLeft("")((acc, p) => if acc.isEmpty then p else acc + "/" + p)
+--- after
+object Segments:
+  def join(parts: List[String]): String =
+    parts.foldRight("")((p, acc) => if acc.isEmpty then p else p + "/" + acc)
+=== Sums
+--- before
+object Sums:
+  def total(xs: List[Int]): Int = xs.foldLeft(0)(_ + _)
+--- after
+object Sums:
+  def total(xs: List[Int]): Int = xs.foldRight(0)(_ + _)
+=== Recipients
+--- before
+object Recipients:
+  def unique(emails: List[String]): List[String] = emails.distinct
+--- after
+object Recipients:
+  def unique(emails: List[String]): List[String] = emails.toSet.toList
+=== Labels
+--- before
+object Labels:
+  def count(labels: List[String]): Int = labels.distinct.size
+--- after
+object Labels:
+  def count(labels: List[String]): Int = labels.toSet.size
+=== Ratio
+--- before
+object Ratio:
+  def safeDiv(a: Int, b: Int): Option[Int] = if b != 0 then Some(a / b) else None
+--- after
+object Ratio:
+  def safeDiv(a: Int, b: Int): Option[Int] = Option.when(b != 0)(a / b)
+=== Stats
+--- before
+object Stats:
+  def average(xs: List[Int]): Int = if xs.isEmpty then 0 else xs.sum / xs.size
+--- after
+object Stats:
+  def average(xs: List[Int]): Int =
+    val avg = xs.sum / xs.size
+    if xs.isEmpty then 0 else avg
+=== Ranges
+--- before
+object Ranges:
+  def mid(lo: Int, hi: Int): Int = (lo + hi) / 2
+--- after
+object Ranges:
+  def mid(lo: Int, hi: Int): Int = lo + (hi - lo) / 2
+=== Bounds
+--- before
+object Bounds:
+  def clamp(x: Int, lo: Int, hi: Int): Int = math.max(lo, math.min(hi, x))
+--- after
+object Bounds:
+  def clamp(x: Int, lo: Int, hi: Int): Int = math.min(hi, math.max(lo, x))
+=== Money
+--- before
+import scala.math.BigDecimal.RoundingMode
+
+object Money:
+  def cents(amount: BigDecimal): Long = (amount * 100).setScale(0, RoundingMode.HALF_UP).toLong
+--- after
+import scala.math.BigDecimal.RoundingMode
+
+object Money:
+  def cents(amount: BigDecimal): Long = (amount * 100).toLong
+=== Inventory
+--- before
+object Inventory:
+  def merge(a: Map[String, Int], b: Map[String, Int]): Map[String, Int] =
+    b.foldLeft(a) { case (m, (k, v)) => m.updated(k, m.getOrElse(k, 0) + v) }
+--- after
+object Inventory:
+  def merge(a: Map[String, Int], b: Map[String, Int]): Map[String, Int] =
+    a ++ b.map((k, v) => k -> (a.getOrElse(k, 0) + v))
+=== Headers
+--- before
+object Headers:
+  def effective(defaults: Map[String, String], request: Map[String, String]): Map[String, String] = defaults ++ request
+--- after
+object Headers:
+  def effective(defaults: Map[String, String], request: Map[String, String]): Map[String, String] = request ++ defaults
+=== Lines
+--- before
+object Lines:
+  def indent(l: String): Int = l.takeWhile(_ == ' ').length
+--- after
+object Lines:
+  def indent(l: String): Int = l.indexWhere(_ != ' ')
+=== Signup
+--- before
+object Signup:
+  def check(age: Int, name: String): Either[String, Unit] =
+    if name.isEmpty then Left("name is required")
+    else if age < 0 then Left("age is negative")
+    else Right(())
+--- after
+object Signup:
+  def check(age: Int, name: String): Either[String, Unit] =
+    if age < 0 then Left("age is negative")
+    else if name.isEmpty then Left("name is required")
+    else Right(())
+=== Access
+--- before
+object Access:
+  def allowed(admin: Boolean, owner: Option[String], user: String): Boolean = admin || owner.contains(user)
+--- after
+object Access:
+  def allowed(admin: Boolean, owner: Option[String], user: String): Boolean = owner.contains(user) || admin
+=== Editing
+--- before
+object Editing:
+  def canEdit(locked: Boolean, roles: List[String]): Boolean = !locked && roles.contains("editor")
+--- after
+object Editing:
+  def canEdit(locked: Boolean, roles: List[String]): Boolean = !(locked || !roles.contains("editor"))
+=== Listing
+--- before
+object Listing:
+  def visible(hidden: Boolean, draft: Boolean): Boolean = !(hidden || draft)
+--- after
+object Listing:
+  def visible(hidden: Boolean, draft: Boolean): Boolean = !hidden || !draft
+=== Words
+--- before
+object Words:
+  def count(s: String): Int = s.split(" ").length
+--- after
+object Words:
+  def count(s: String): Int = s.split(" ").count(_.nonEmpty)
+=== Versions
+--- before
+object Versions:
+  def compare(a: List[Int], b: List[Int]): Int = (a, b) match
+    case (Nil, Nil) => 0
+    case (Nil, _) => -1
+    case (_, Nil) => 1
+    case (x :: xs, y :: ys) => if x != y then x.compare(y) else compare(xs, ys)
+--- after
+object Versions:
+  def compare(a: List[Int], b: List[Int]): Int =
+    a.zipAll(b, 0, 0).find(_ != _).map((x, y) => x.compare(y)).getOrElse(0)
+=== Report
+--- before
+object Report:
+  def range(xs: List[Int]): (Int, Int) = (xs.min, xs.max)
+--- after
+object Report:
+  def range(xs: List[Int]): (Int, Int) =
+    xs.foldLeft((Int.MaxValue, Int.MinValue))((acc, x) => (acc._1.min(x), acc._2.max(x)))
+=== Codes
+--- before
+object Codes:
+  def parse(s: String): Option[Int] = scala.util.Try(s.toInt).toOption
+--- after
+object Codes:
+  def parse(s: String): Option[Int] = s.toIntOption
+=== Dedupe
+--- before
+object Dedupe:
+  def index(pairs: List[(String, Int)]): Map[String, Int] = pairs.toMap
+--- after
+object Dedupe:
+  def index(pairs: List[(String, Int)]): Map[String, Int] = pairs.groupBy(_._1).map((k, v) => k -> v.head._2)
+=== Search
+--- before
+object Search:
+  def firstBig(xs: List[Int]): Option[Int] = xs.find(_ > 100)
+--- after
+object Search:
+  def firstBig(xs: List[Int]): Option[Int] = xs.filter(_ > 100).headOption
+=== Window
+--- before
+object Window:
+  def pairs(xs: List[Int]): List[(Int, Int)] = xs.zip(xs.drop(1))
+--- after
+object Window:
+  def pairs(xs: List[Int]): List[(Int, Int)] = xs.sliding(2).collect { case List(a, b) => (a, b) }.toList
+=== Grades
+--- before
+object Grades:
+  def letter(score: Int): Char = if score >= 90 then 'A' else if score >= 80 then 'B' else 'C'
+--- after
+object Grades:
+  def letter(score: Int): Char = score / 10 match
+    case 10 | 9 => 'A'
+    case 8 => 'B'
+    case _ => 'C'
+=== Ids
+--- before
+object Ids:
+  def next(used: Set[Int]): Int = Iterator.from(1).find(!used(_)).get
+--- after
+object Ids:
+  def next(used: Set[Int]): Int = (1 to used.size + 1).find(!used(_)).get
+=== Batch
+--- before
+object Batch:
+  def chunks(xs: List[Int], n: Int): List[List[Int]] = xs.grouped(n).toList
+--- after
+object Batch:
+  def chunks(xs: List[Int], n: Int): List[List[Int]] = if n <= 0 then List(xs) else xs.grouped(n).toList
+=== Merge
+--- before
+object Merge:
+  def sorted(a: List[Int], b: List[Int]): List[Int] = (a ++ b).sorted
+--- after
+object Merge:
+  def sorted(a: List[Int], b: List[Int]): List[Int] = (b ++ a).sorted
+=== Tasks
+--- before
+final case class Task(name: String, priority: Int)
+
+object Tasks:
+  def ordered(mine: List[Task], theirs: List[Task]): List[Task] = (mine ++ theirs).sortBy(_.priority)
+--- after
+final case class Task(name: String, priority: Int)
+
+object Tasks:
+  def ordered(mine: List[Task], theirs: List[Task]): List[Task] = (theirs ++ mine).sortBy(_.priority)
+=== Emails
+--- before
+object Emails:
+  def domain(e: String): Option[String] = e.split('@') match
+    case Array(_, d) => Some(d)
+    case _ => None
+--- after
+object Emails:
+  def domain(e: String): Option[String] = Option(e.indexOf('@')).filter(_ >= 0).map(i => e.substring(i + 1))
+=== Initials
+--- before
+object Initials:
+  def of(first: String, last: String): String = s"${first.take(1)}${last.take(1)}".toUpperCase
+--- after
+object Initials:
+  def of(first: String, last: String): String = (first.headOption ++ last.headOption).mkString.toUpperCase
+=== Lasts
+--- before
+object Lasts:
+  def lastOr(xs: List[Int], default: Int): Int = xs.lastOption.getOrElse(default)
+--- after
+object Lasts:
+  def lastOr(xs: List[Int], default: Int): Int = xs.foldLeft(default)((_, x) => x)
+=== Fallback
+--- before
+object Fallback:
+  def pick(mine: Option[Int], shared: Option[Int]): Option[Int] = mine.orElse(shared)
+--- after
+object Fallback:
+  def pick(mine: Option[Int], shared: Option[Int]): Option[Int] = (mine ++ shared).headOption
+=== Parsed
+--- before
+object Parsed:
+  def all(xs: List[Either[String, Int]]): Either[String, List[Int]] =
+    xs.foldRight[Either[String, List[Int]]](Right(Nil))((e, acc) => for x <- e; rest <- acc yield x :: rest)
+--- after
+object Parsed:
+  def all(xs: List[Either[String, Int]]): Either[String, List[Int]] =
+    xs.collectFirst { case Left(e) => e }.toLeft(xs.collect { case Right(x) => x })
+=== Pages
+--- before
+object Pages:
+  def count(total: Int, size: Int): Int = (total + size - 1) / size
+--- after
+object Pages:
+  def count(total: Int, size: Int): Int = math.ceil(total.toDouble / size).toInt
