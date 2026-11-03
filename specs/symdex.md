@@ -536,7 +536,7 @@ imported. `TestEquivalent` runs the fixtures' refactorings for real. A demo proj
 against HEAD): a safe fold — no difference on 85 small and 1000 random inputs; `>` for `>=` — `(List(Line("", 0, 0)),
 0)`: now None, HEAD Some(""); the first line for the sum — `Some(List(Line("", 0, 0), Line("", 1, 0)))`: now 0, HEAD 1.
 Each answer ~2 s (scala-cli compiles the harness).
-4. The equivalence benchmark (mutations of real code) and the demo on okay-agent.
+4. The equivalence benchmark (mutations of real code) and the demo on okay-agent — `bench/equivalence/README.md`.
 5. `type` (presentation compiler) and its benchmark; then effects.
 
 ## Where the general parts go
