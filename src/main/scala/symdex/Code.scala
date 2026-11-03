@@ -39,7 +39,8 @@ enum Code[X]:
   case Extensions() extends Code[Map[String, Vector[String]]]
   case Covered() extends Code[Coverage]
   case Warm() extends Code[Unit]
-  /** the project as built: the classpath beside a SemanticDB root's classes (sbt-symdex writes it), its Scala version */
+  /** the project as built: the classpath beside a SemanticDB root's classes (sbt-symdex writes it), its Scala
+   * version */
   case Classpath(root: Path) extends Code[Option[Built]]
   /** a source file's text at a git revision */
   case AtRevision(source: Path, rev: String) extends Code[Option[String]]
@@ -317,7 +318,8 @@ private final class Compiled[R[_]](val base: Path, kept: Kept, include: DbFile =
       Exec.run[R](command, dir, program.timeoutMs).map {
         case Left(why) => Left(why)
         case Right(r) if r.code == 0 => Right(r.out)
-        case Right(r) => Left(r.err.linesIterator.filterNot(_.contains("WARNING")).toVector.takeRight(12).mkString("\n"))
+        case Right(r) =>
+          Left(r.err.linesIterator.filterNot(_.contains("WARNING")).toVector.takeRight(12).mkString("\n"))
       }
     }
   def stale(g: Generation): Vector[Entry] ! R =

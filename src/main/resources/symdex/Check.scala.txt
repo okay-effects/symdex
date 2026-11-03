@@ -15,6 +15,9 @@ object Gen:
     def random(r: Random, size: Int) = rnd(r, size)
   given Gen[Int] = of(_ => LazyList(0, 1, -1, 2, -2, 3, Int.MaxValue, Int.MinValue), (r, s) => r.between(-s * 10, s * 10 + 1))
   given Gen[Long] = of(_ => LazyList(0L, 1L, -1L, 2L, Long.MaxValue, Long.MinValue), (r, s) => r.between(-s * 10L, s * 10L + 1))
+  given Gen[BigDecimal] = of(_ => LazyList(BigDecimal(0), BigDecimal(1), BigDecimal(-1), BigDecimal("0.5"), BigDecimal("19.99")),
+    (r, s) => BigDecimal(r.between(-s * 1000, s * 1000 + 1)) / 100)
+  given Gen[Double] = of(_ => LazyList(0.0, 1.0, -1.0, 0.5), (r, s) => r.between(-s * 10.0, s * 10.0))
   given Gen[Boolean] = of(_ => LazyList(false, true), (r, _) => r.nextBoolean())
   given Gen[Char] = of(_ => LazyList('a', 'b', ' ', '0'), (r, _) => ('a' + r.nextInt(26)).toChar)
   given Gen[String] = of(s => LazyList("", "a", "ab", "aa", " ", "A").take(s + 2),
@@ -24,7 +27,7 @@ object Gen:
   private def lists[A](a: Gen[A], s: Int): LazyList[List[A]] =
     if s <= 0 then LazyList(Nil)
     else
-      val elems = a.small(s - 1).take(3)
+      val elems = a.small(s - 1).take(4)
       LazyList.from(0 to (s min 3)).flatMap(n => combos(elems, n))
   private def combos[A](elems: LazyList[A], n: Int): LazyList[List[A]] =
     if n == 0 then LazyList(Nil) else elems.flatMap(e => combos(elems, n - 1).map(e :: _))
@@ -38,14 +41,24 @@ object Gen:
     of(s => a.small(s - 1).take(3).map(Left(_)) #::: b.small(s - 1).take(3).map(Right(_)),
       (r, s) => if r.nextBoolean() then Left(a.random(r, s)) else Right(b.random(r, s)))
   given [A, B](using a: Gen[A], b: Gen[B]): Gen[(A, B)] =
-    of(s => for x <- a.small(s).take(4); y <- b.small(s).take(4) yield (x, y), (r, s) => (a.random(r, s), b.random(r, s)))
+    of(s => diagonal(List(a.small(s).take(5).toVector, b.small(s).take(5).toVector)).map { case List(x, y) =>
+      (x.asInstanceOf[A], y.asInstanceOf[B]) }, (r, s) => (a.random(r, s), b.random(r, s)))
   given [K, V](using k: Gen[K], v: Gen[V]): Gen[Map[K, V]] =
     of(s => lists(summon[Gen[(K, V)]], s).map(_.toMap).distinct, (r, s) => List.fill(r.nextInt(s + 3))((k.random(r, s), v.random(r, s))).toMap)
 
-  // case classes: every combination of their fields' small values, random fields
+  /** every combination of the values, in DIAGONAL order — by the sum of their indices — so that the first few vary
+   * every part, not the last one alone */
+  def diagonal(parts: List[Vector[Any]]): LazyList[List[Any]] =
+    val maxSum = parts.map(_.size - 1).sum
+    def at(ps: List[Vector[Any]], left: Int): LazyList[List[Any]] = ps match
+      case Nil => if left == 0 then LazyList(Nil) else LazyList.empty
+      case p :: rest => LazyList.from(0 to (left min (p.size - 1))).flatMap(i => at(rest, left - i).map(p(i) :: _))
+    LazyList.from(0 to maxSum).flatMap(at(parts, _))
+
+  // case classes: every combination of their fields' small values (diagonally), random fields
   inline given derived[A](using m: Mirror.ProductOf[A]): Gen[A] =
     val fields = gens[m.MirroredElemTypes]
-    of(s => fields.foldRight(LazyList(List.empty[Any]))((g, acc) => g.small(s - 1).take(3).flatMap(x => acc.map(x :: _)))
+    of(s => diagonal(fields.map(_.small(s - 1).take(4).toVector))
       .map(xs => m.fromProduct(Tuple.fromArray(xs.toArray.map(_.asInstanceOf[Object])))),
       (r, s) => m.fromProduct(Tuple.fromArray(fields.map(_.random(r, s).asInstanceOf[Object]).toArray)))
   inline def gens[T <: Tuple]: List[Gen[Any]] = inline erasedValue[T] match

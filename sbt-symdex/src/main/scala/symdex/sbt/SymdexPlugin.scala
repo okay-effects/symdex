@@ -39,6 +39,8 @@ object SymdexPlugin extends AutoPlugin {
     val symdexHookFile = settingKey[File](
       "where symdexHook registers the hook (default .claude/settings.local.json: the path is this machine's)")
     val symdexLauncher = taskKey[File]("bin/symdex: from symdexHome, else the release, downloaded once")
+    val symdexClasspath = taskKey[File](
+      "this project's classpath beside its classes (symdex-classpath-compile.txt, -test.txt): what symdex's equivalent runs against")
     val symdexIndex = taskKey[Unit](
       "compile every project with its tests (SemanticDB on), then report what symdex covers and what is stale")
     val symdexMcp = taskKey[File](
@@ -52,6 +54,16 @@ object SymdexPlugin extends AutoPlugin {
   val SymdexRelease = "0.6.0"
 
   override def globalSettings: Seq[Setting[_]] = Seq(commands += symdexCommand)
+
+  // each project's classpath, written beside its classes for symdex's `equivalent` (specs/symdex.md, v0.9): found
+  // there by the SemanticDB root, whatever the module is called
+  override def projectSettings: Seq[Setting[_]] = Seq(Compile, Test).flatMap(c => inConfig(c)(Seq(
+    symdexClasspath := {
+      val name = if (configuration.value.name == "test") "test" else "compile"
+      val out = classDirectory.value.getParentFile / s"symdex-classpath-$name.txt"
+      IO.write(out, fullClasspath.value.files.map(_.getAbsolutePath).mkString(java.io.File.pathSeparator))
+      out
+    })))
 
   override def buildSettings: Seq[Setting[_]] = Seq(
     semanticdbEnabled := true,
@@ -76,6 +88,7 @@ object SymdexPlugin extends AutoPlugin {
       val mine = buildStructure.value.allProjectRefs.filter(_.build == root)
       Def.task {
         val _ = compile.all(ScopeFilter(inProjects(mine: _*), inConfigurations(Compile, Test))).value
+        val _cp = symdexClasspath.all(ScopeFilter(inProjects(mine: _*), inConfigurations(Compile, Test))).value
         log.info(run(launcherFile, Seq("status", "--root", base.getAbsolutePath)))
       }
     }.value,

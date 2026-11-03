@@ -553,7 +553,8 @@ object Tools:
     }
 
   /** the answers as JSON: `{"goal", "count", "answers": [{"X": "…"}, …]}` (the first `limit`) */
-  private def asJson(goal: okay.datalog.Atom, asked: okay.datalog.Atom, result: okay.datalog.Result, limit: Int): String =
+  private def asJson(goal: okay.datalog.Atom, asked: okay.datalog.Atom, result: okay.datalog.Result,
+                     limit: Int): String =
     val all = result.query(asked)
     Json.print(Json.obj("goal" -> Json.Str(goal.toString), "count" -> Json.num(all.size),
       "answers" -> Json.Arr(all.take(limit).map(b => Json.Obj(b.toVector.sortBy(_._1).map((k, v) => k -> Json.Str(v))))

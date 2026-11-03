@@ -525,6 +525,17 @@ difference on every input up to size 4 and 1000 random"; okay-guard's journal sh
 2. `Run` and the harness: generators by types, exhaustive small inputs + random, comparison, exceptions as values.
 3. `equivalent`: the old definition by its span from git, the purity check, the answers; fixtures; tests with `Run`
    fixed and with the real one.
+
+Done 2026-11-04 (stages 1–3, not released — the measure first): `Code` got `Classpath`, `AtRevision`, `Execute` over a
+new effect `Exec` (processes; `Code.fixed` answers them as given); sbt-symdex 0.8.0 writes
+`symdex-classpath-compile.txt` / `-test.txt` beside each project's classes (`symdexClasspath`, run by
+`symdexIndex`); the generators (`Check.scala`, a resource) derived by the compiler from the parameters' types, products
+enumerated diagonally (the first values vary every field — found when a list of lines all had `qty = 0`); the old
+definition found in the revision's text by `def <name>` inside its object and its indentation, the owner's members
+imported. `TestEquivalent` runs the fixtures' refactorings for real. A demo project (`/tmp/eqdemo`, three edits
+against HEAD): a safe fold — no difference on 85 small and 1000 random inputs; `>` for `>=` — `(List(Line("", 0, 0)),
+0)`: now None, HEAD Some(""); the first line for the sum — `Some(List(Line("", 0, 0), Line("", 1, 0)))`: now 0, HEAD 1.
+Each answer ~2 s (scala-cli compiles the harness).
 4. The equivalence benchmark (mutations of real code) and the demo on okay-agent.
 5. `type` (presentation compiler) and its benchmark; then effects.
 
