@@ -6,6 +6,12 @@ import okay.scala3.std.Clock
 import java.nio.file.Path
 import java.util.concurrent.atomic.AtomicReference
 
+/** the project as built: its compiled classpath and the Scala version it was compiled with */
+final case class Built(classpath: Vector[Path], scalaVersion: String)
+
+/** a program to compile against a project and run: its source files (name, text), the build, a time limit */
+final case class Program(files: Vector[(String, String)], built: Built, timeoutMs: Long = 120000)
+
 /** One built index, and when and from what it was built. */
 final case class Generation(number: Int, index: Index, files: Vector[DbFile],
                             builtAt: Long, buildMillis: Long, unreadable: Vector[String]):
@@ -33,6 +39,12 @@ enum Code[X]:
   case Extensions() extends Code[Map[String, Vector[String]]]
   case Covered() extends Code[Coverage]
   case Warm() extends Code[Unit]
+  /** the project as built: the classpath beside a SemanticDB root's classes (sbt-symdex writes it), its Scala version */
+  case Classpath(root: Path) extends Code[Option[Built]]
+  /** a source file's text at a git revision */
+  case AtRevision(source: Path, rev: String) extends Code[Option[String]]
+  /** a program compiled against the project and run: its standard output, or why not (specs/symdex.md, v0.9) */
+  case Execute(program: Program) extends Code[Either[String, String]]
 
 object Code:
   def root[R[_]](using In[Code, R]): Path ! R = perform[Code](Root())
@@ -44,6 +56,10 @@ object Code:
   def extensions[R[_]](using In[Code, R]): Map[String, Vector[String]] ! R = perform[Code](Extensions())
   def covered[R[_]](using In[Code, R]): Coverage ! R = perform[Code](Covered())
   def warm[R[_]](using In[Code, R]): Unit ! R = perform[Code](Warm())
+  def classpath[R[_]](root: Path)(using In[Code, R]): Option[Built] ! R = perform[Code](Classpath(root))
+  def atRevision[R[_]](source: Path, rev: String)(using In[Code, R]): Option[String] ! R =
+    perform[Code](AtRevision(source, rev))
+  def execute[R[_]](program: Program)(using In[Code, R]): Either[String, String] ! R = perform[Code](Execute(program))
 
   /** the full extent of the definition named at `l` */
   def spanAt[R[_]](ix: Index, l: Loc)(using In[Code, R]): Option[Span] ! R =
@@ -59,7 +75,9 @@ object Code:
 
   /** AN INDEX GIVEN: its tables and lines as given, nothing stale, nothing to read */
   def fixed[R[_], Rest[_], A](root: Path, index: Index, tables: Map[Path, SpanTable] = Map.empty,
-                              lines: Map[Path, Vector[String]] = Map.empty, builtAt: Long = 0L)(p: A ! R)(
+                              lines: Map[Path, Vector[String]] = Map.empty, builtAt: Long = 0L,
+                              built: Option[Built] = None, revisions: Map[(Path, String), String] = Map.empty,
+                              execute: Program => Either[String, String] = _ => Left("nothing runs here"))(p: A ! R)(
     using Split[Code, R, Rest]): A ! Rest =
     val g = Generation(1, index, Vector.empty, builtAt, 0L, Vector.empty)
     handle(p, Handler.tail[Code, Rest, A, A](pure)([X] => (op: Code[X]) => op match
@@ -70,7 +88,10 @@ object Code:
       case Stale(_) => Vector.empty[Entry]
       case Extensions() => index.extensionsOn(r => tables.getOrElse(r, SpanTable.empty))
       case Covered() => Coverage.none
-      case Warm() => ()))
+      case Warm() => ()
+      case Classpath(_) => built
+      case AtRevision(s, rev) => revisions.get((s, rev))
+      case Execute(program) => execute(program)))
 
   /**
    * THE COMPILERS' OUTPUT ON A DISK, kept fresh: before answering, the SemanticDB under `root` is looked at (at most
@@ -81,7 +102,7 @@ object Code:
    */
   def compiled[R[_], Rest[_], A](root: Path, kept: Kept, include: DbFile => Boolean = _ => true,
                                  recheckMillis: Long = 2000)(p: A ! R)(
-    using Split[Code, R, Rest], In[Disk, Rest], In[Tasty, Rest], In[Clock, Rest]): A ! Rest =
+    using Split[Code, R, Rest], In[Disk, Rest], In[Tasty, Rest], In[Clock, Rest], In[Exec, Rest]): A ! Rest =
     val c = Compiled[Rest](root.toAbsolutePath.normalize, kept, include, recheckMillis)
     handle(p, Handler.general[Code, Rest, A, A](pure)([X] => (op: Code[X], k: X => A ! Rest) => op match
       case Root() => k(c.base)
@@ -91,7 +112,10 @@ object Code:
       case Stale(g) => c.stale(g).flatMap(k)
       case Extensions() => c.extensions.flatMap(k)
       case Covered() => c.coverage.flatMap(k)
-      case Warm() => c.warm.flatMap(k)))
+      case Warm() => c.warm.flatMap(k)
+      case Classpath(r) => c.classpath(r).flatMap(k)
+      case AtRevision(s, rev) => c.atRevision(s, rev).flatMap(k)
+      case Execute(program) => c.execute(program).flatMap(k)))
 
 /** a SemanticDB root's class directory: its TASTy, kept while that root's SemanticDB is unchanged (`stamp`) */
 final case class Classes(root: Path, dir: Path, stamp: String, saved: Path, read: Option[Tasty.Read] = None,
@@ -122,7 +146,7 @@ final class Kept:
 
 /** `Code.compiled`'s answers, each a program over `Disk`, `Tasty` and `Clock` */
 private final class Compiled[R[_]](val base: Path, kept: Kept, include: DbFile => Boolean, recheckMillis: Long)(
-  using In[Disk, R], In[Tasty, R], In[Clock, R]):
+  using In[Disk, R], In[Tasty, R], In[Clock, R], In[Exec, R]):
 
   def current: Generation ! R =
     Clock.now[R].flatMap { now =>
@@ -260,6 +284,42 @@ private final class Compiled[R[_]](val base: Path, kept: Kept, include: DbFile =
         }
     }
 
+
+  /** the classpath sbt-symdex writes beside a root's classes (`symdex-classpath-compile.txt`, `-test.txt`), and the
+   * Scala version: the `scala-3.x.y` directory above them, else the scala3-library jar's */
+  def classpath(root: Path): Option[Built] ! R =
+    val classes = Tasty.classDirOf(root)
+    val config = if classes.getFileName.toString == "test-classes" then "test" else "compile"
+    Disk.read[R](classes.resolveSibling(s"symdex-classpath-$config.txt")).map(_.map { bytes =>
+      val cp = String(bytes, "UTF-8").trim.split(java.io.File.pathSeparator).toVector.filter(_.nonEmpty).map(Path.of(_))
+      val dirVersion = Option(classes.getParent).map(_.getFileName.toString).filter(_.startsWith("scala-3"))
+        .map(_.stripPrefix("scala-"))
+      val jarVersion = cp.map(_.getFileName.toString).collectFirst {
+        case Compiled.Library(v) => v }
+      Built(cp, dirVersion.orElse(jarVersion).getOrElse("3.3.8"))
+    })
+
+  /** `git show <rev>:./<file>`, in the file's directory */
+  def atRevision(source: Path, rev: String): Option[String] ! R =
+    Exec.run[R](List("git", "show", s"$rev:./${source.getFileName}"), source.getParent, 20000)
+      .map(_.toOption.filter(_.code == 0).map(_.out))
+
+  private var programs = 0
+
+  /** the program's files written under `.symdex/run/<n>`, compiled and run by scala-cli against the build */
+  def execute(program: Program): Either[String, String] ! R =
+    programs += 1
+    val dir = base.resolve(".symdex").resolve("run").resolve(programs.toString)
+    each(program.files)((name, text) => Disk.write[R](dir.resolve(name), text.getBytes("UTF-8"))).flatMap { _ =>
+      val cli = sys.env.getOrElse("SYMDEX_SCALA_CLI", "scala-cli")
+      val command = List(cli, "run", "--server=false", "-S", program.built.scalaVersion, "--classpath",
+        program.built.classpath.mkString(java.io.File.pathSeparator)) ++ program.files.map(_._1)
+      Exec.run[R](command, dir, program.timeoutMs).map {
+        case Left(why) => Left(why)
+        case Right(r) if r.code == 0 => Right(r.out)
+        case Right(r) => Left(r.err.linesIterator.filterNot(_.contains("WARNING")).toVector.takeRight(12).mkString("\n"))
+      }
+    }
   def stale(g: Generation): Vector[Entry] ! R =
     each(g.index.entries)(e => Disk.stat[R](e.source).map(n => Option.when(n.exists(_.mtime > e.db.mtime))(e)))
       .map(_.flatten)
@@ -289,6 +349,9 @@ private final class Compiled[R[_]](val base: Path, kept: Kept, include: DbFile =
     }
 
 object Compiled:
+  /** the Scala 3 library's jar, and its version */
+  val Library = """scala3-library_3-([0-9][^-]*?)\.jar""".r
+
   /** one SemanticDB directory's files as a key: a compile rewrites at least one, a deleted source removes one */
   def stamp(files: Vector[DbFile]): String =
     s"${files.size}:${files.map(_.mtime).max}:${files.map(_.size).sum}"

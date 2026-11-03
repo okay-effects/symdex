@@ -1,0 +1,99 @@
+package okay.symdex.check
+
+import scala.deriving.Mirror
+import scala.compiletime.{erasedValue, summonInline}
+import scala.util.Random
+
+/** generators by type: every value up to a small size (exhaustive), and random ones */
+trait Gen[A]:
+  def small(size: Int): LazyList[A]
+  def random(r: Random, size: Int): A
+
+object Gen:
+  def of[A](s: Int => LazyList[A], rnd: (Random, Int) => A): Gen[A] = new Gen[A]:
+    def small(size: Int) = s(size)
+    def random(r: Random, size: Int) = rnd(r, size)
+  given Gen[Int] = of(_ => LazyList(0, 1, -1, 2, -2, 3, Int.MaxValue, Int.MinValue), (r, s) => r.between(-s * 10, s * 10 + 1))
+  given Gen[Long] = of(_ => LazyList(0L, 1L, -1L, 2L, Long.MaxValue, Long.MinValue), (r, s) => r.between(-s * 10L, s * 10L + 1))
+  given Gen[Boolean] = of(_ => LazyList(false, true), (r, _) => r.nextBoolean())
+  given Gen[Char] = of(_ => LazyList('a', 'b', ' ', '0'), (r, _) => ('a' + r.nextInt(26)).toChar)
+  given Gen[String] = of(s => LazyList("", "a", "ab", "aa", " ", "A").take(s + 2),
+    (r, s) => List.fill(r.nextInt(s + 3))(('a' + r.nextInt(3)).toChar).mkString)
+  given [A](using a: Gen[A]): Gen[Option[A]] = of(s => None #:: a.small(s - 1).map(Some(_)),
+    (r, s) => if r.nextInt(4) == 0 then None else Some(a.random(r, s)))
+  private def lists[A](a: Gen[A], s: Int): LazyList[List[A]] =
+    if s <= 0 then LazyList(Nil)
+    else
+      val elems = a.small(s - 1).take(3)
+      LazyList.from(0 to (s min 3)).flatMap(n => combos(elems, n))
+  private def combos[A](elems: LazyList[A], n: Int): LazyList[List[A]] =
+    if n == 0 then LazyList(Nil) else elems.flatMap(e => combos(elems, n - 1).map(e :: _))
+  given [A](using a: Gen[A]): Gen[List[A]] = of(s => lists(a, s),
+    (r, s) => List.fill(r.nextInt(s + 4))(a.random(r, s)))
+  given [A](using a: Gen[A]): Gen[Vector[A]] = of(s => lists(a, s).map(_.toVector),
+    (r, s) => Vector.fill(r.nextInt(s + 4))(a.random(r, s)))
+  given [A](using a: Gen[A]): Gen[Set[A]] = of(s => lists(a, s).map(_.toSet).distinct,
+    (r, s) => Set.fill(r.nextInt(s + 4))(a.random(r, s)))
+  given [A, B](using a: Gen[A], b: Gen[B]): Gen[Either[A, B]] =
+    of(s => a.small(s - 1).take(3).map(Left(_)) #::: b.small(s - 1).take(3).map(Right(_)),
+      (r, s) => if r.nextBoolean() then Left(a.random(r, s)) else Right(b.random(r, s)))
+  given [A, B](using a: Gen[A], b: Gen[B]): Gen[(A, B)] =
+    of(s => for x <- a.small(s).take(4); y <- b.small(s).take(4) yield (x, y), (r, s) => (a.random(r, s), b.random(r, s)))
+  given [K, V](using k: Gen[K], v: Gen[V]): Gen[Map[K, V]] =
+    of(s => lists(summon[Gen[(K, V)]], s).map(_.toMap).distinct, (r, s) => List.fill(r.nextInt(s + 3))((k.random(r, s), v.random(r, s))).toMap)
+
+  // case classes: every combination of their fields' small values, random fields
+  inline given derived[A](using m: Mirror.ProductOf[A]): Gen[A] =
+    val fields = gens[m.MirroredElemTypes]
+    of(s => fields.foldRight(LazyList(List.empty[Any]))((g, acc) => g.small(s - 1).take(3).flatMap(x => acc.map(x :: _)))
+      .map(xs => m.fromProduct(Tuple.fromArray(xs.toArray.map(_.asInstanceOf[Object])))),
+      (r, s) => m.fromProduct(Tuple.fromArray(fields.map(_.random(r, s).asInstanceOf[Object]).toArray)))
+  inline def gens[T <: Tuple]: List[Gen[Any]] = inline erasedValue[T] match
+    case _: EmptyTuple => Nil
+    case _: (h *: t) => summonInline[Gen[h]].asInstanceOf[Gen[Any]] :: gens[t]
+
+object Check:
+  /** a value as Scala writes it: a text quoted, its parts too */
+  def show(x: Any): String = x match
+    case s: String => "\"" + s + "\""
+    case c: Char => s"'$c'"
+    case m: Map[?, ?] => m.iterator.map((k, v) => s"${show(k)} -> ${show(v)}").mkString("Map(", ", ", ")")
+    case xs: List[?] => xs.map(show).mkString("List(", ", ", ")")
+    case xs: Vector[?] => xs.map(show).mkString("Vector(", ", ", ")")
+    case xs: Set[?] => xs.map(show).mkString("Set(", ", ", ")")
+    case p: Product if p.productArity > 0 =>
+      val name = if p.isInstanceOf[Tuple] then "" else p.productPrefix
+      name + p.productIterator.map(show).mkString("(", ", ", ")")
+    case other => String.valueOf(other)
+  private def outcome[B](f: => B): String = try "= " + show(f) catch case e: Throwable => "throws " + e.getClass.getName
+  private def json(s: String) = "\"" + s.flatMap { case '"' => "\\\""; case '\\' => "\\\\"; case '\n' => "\\n"; case c => c.toString } + "\""
+  private def run[A](inputs: Iterator[A], f: A => Any, g: A => Any): Either[(A, String, String), Int] =
+    var n = 0
+    var diff: Option[(A, String, String)] = None
+    while diff.isEmpty && inputs.hasNext do
+      val a = inputs.next(); n += 1
+      val (x, y) = (outcome(f(a)), outcome(g(a)))
+      if x != y then diff = Some((a, x, y))
+    diff.toLeft(n)
+  def compareT[A](f: A => Any, g: A => Any, size: Int, trials: Int, cap: Int)(using ga: Gen[A]): String =
+    val r = Random(7)
+    val small = ga.small(size).take(cap)
+    run(small.iterator, f, g) match
+      case Left((a, x, y)) => s"""{"equivalent":false,"input":${json(show(a))},"new":${json(x)},"old":${json(y)},"found":"small"}"""
+      case Right(n) => run(Iterator.fill(trials)(ga.random(r, size)), f, g) match
+        case Left((a, x, y)) => s"""{"equivalent":false,"input":${json(show(a))},"new":${json(x)},"old":${json(y)},"found":"random"}"""
+        case Right(m) => s"""{"equivalent":true,"small":$n,"random":$m,"size":$size}"""
+  def compare1[A, B](f: A => B, g: A => B, size: Int, trials: Int)(using Gen[A]): String =
+    compareT[A](f, g, size, trials, 20000)
+  def compare2[A1, A2, B](f: (A1, A2) => B, g: (A1, A2) => B, size: Int, trials: Int)(using Gen[A1], Gen[A2]): String =
+    compareT[(A1, A2)](f.tupled, g.tupled, size, trials, 20000)
+  def compare3[A1, A2, A3, B](f: (A1, A2, A3) => B, g: (A1, A2, A3) => B, size: Int, trials: Int)(
+    using a1: Gen[A1], a2: Gen[A2], a3: Gen[A3]): String =
+    given Gen[(A1, A2, A3)] = Gen.of(s => for x <- a1.small(s).take(4); y <- a2.small(s).take(4); z <- a3.small(s).take(4) yield (x, y, z),
+      (r, s) => (a1.random(r, s), a2.random(r, s), a3.random(r, s)))
+    compareT[(A1, A2, A3)](f.tupled, g.tupled, size, trials, 20000)
+  /** a value of no parameter: once */
+  def compare0[B](f: => B, g: => B): String =
+    val (x, y) = (outcome(f), outcome(g))
+    if x == y then s"""{"equivalent":true,"small":1,"random":0,"size":0}"""
+    else s"""{"equivalent":false,"input":"()","new":${json(x)},"old":${json(y)},"found":"small"}"""

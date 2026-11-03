@@ -584,6 +584,86 @@ object Tools:
     val none = if all.isEmpty then Vector(s"  (no answers; the relations: ${CodeFacts.relations})") else Vector.empty
     (title +: (body ++ none ++ proofs)).mkString("\n")
 
+  /**
+   * EQUIVALENCE BY RUNNING (specs/symdex.md, v0.9): the definition now against itself at a git revision (`against`,
+   * HEAD by default) or against another definition (`against` a name), both run on every input up to `size` and on
+   * `trials` random ones, inputs from the parameters' types. A counterexample is a proof of difference; no
+   * difference found says what was covered.
+   */
+  def equivalent[R[_]: Has[Code] : Has[Clock]](a: Json): String ! R =
+    val q = need(a, "query")
+    val against = str(a, "against").getOrElse("HEAD")
+    val size = int(a, "size", 4) max 0 min 6
+    val trials = int(a, "trials", 1000) max 0
+    val json = str(a, "format").contains("json")
+    def answer(head: String, text: String, data: => Json): String =
+      if json then Json.print(data) else s"$head\n$text"
+    generation[R].flatMap { (g, head) =>
+      val ix = g.index
+      def refuse(why: String) = pure[String, R](answer(head, why, Json.obj("error" -> Json.Str(why))))
+      symbolsOf(ix, q) match
+        case Left(why) => refuse(why)
+        case Right(ss) if ss.size > 1 && !oneName(ss) => pure(s"$head\n${candidates(ix, ss)}")
+        case Right(ss) =>
+          val placed = for
+            t <- Equivalence.target(ix, ss.head)
+            l <- ix.definitions.get(ss.head).flatMap(_.headOption).toRight(s"${ss.head}: not defined in the index")
+            e <- ix.entryFor(l.file).toRight(s"${l.file}: not indexed")
+          yield (t, l, e)
+          placed match
+            case Left(why) => refuse(why)
+            case Right((t, l, e)) =>
+              // `against`: another definition when it names one (a dot or a hash in it), else a git revision
+              val other: Option[Either[String, Equivalence.Target]] =
+                Option.when(against.exists(c => c == '.' || c == '#'))(ix.resolve(against) match
+                  case Vector(o) => Equivalence.target(ix, o)
+                  case Vector() => Left(s"nothing named '$against' in the index")
+                  case os => Left(s"'$against' means ${os.size} symbols; name one: ${os.take(5).mkString(", ")}"))
+              Code.spanAt[R](ix, l).flatMap { span =>
+                // not a function of its parameters: a reference inside it to something that reads or writes the world
+                // its body: the span TASTy gives, else up to the next definition of the file
+                val (from, to) = span.map(sp => (sp.startLine, sp.endLine)).getOrElse(
+                  (l.range.startLine, ix.outlineOf(l.file).map(_._1.startLine).filter(_ > l.range.startLine)
+                    .minOption.fold(Int.MaxValue)(_ - 1)))
+                val inside = e.doc.occurrences.filter(o => !o.definition && o.range.startLine >= from &&
+                  o.range.startLine <= to).map(_.symbol)
+                inside.find(s => Equivalence.impure.exists(s.startsWith)) match
+                  case Some(world) => refuse(s"${t.path} is not a pure function of its parameters: it uses $world")
+                  case None => Code.classpath[R](e.db.root).flatMap {
+                    case None => refuse(s"no classpath for ${l.module}: `sbt symdexIndex` writes it (sbt-symdex 0.8)")
+                    case Some(built) =>
+                      val sides: Either[String, (Vector[String], Either[String, Equivalence.Target])] ! R = other match
+                        case Some(o) => Code.lines[R](l.source).map(ls =>
+                          o.map(ot => (Equivalence.header(ls.mkString("\n")), Right(ot))))
+                        case None => Code.atRevision[R](l.source, against).map {
+                          case None => Left(s"${l.file} at $against: not found in git")
+                          case Some(text) => Equivalence.definitionIn(text, t.owner, t.name)
+                            .map(d => (Equivalence.header(text), Left(d)))
+                        }
+                      sides.flatMap {
+                        case Left(why) => refuse(why)
+                        case Right((header, old)) =>
+                          val program = Program(Vector("Check.scala" -> Equivalence.checkSource,
+                            "Harness.scala" -> Equivalence.harness(t, header, old, size, trials)), built)
+                          val label = other.fold(against)(_ => against)
+                          Code.execute[R](program).map(_.flatMap(Equivalence.verdict) match
+                            case Left(why) => answer(head, s"${t.path}: the comparison did not run:\n$why",
+                              Json.obj("error" -> Json.Str(why)))
+                            case Right(v) if v.equivalent =>
+                              answer(head, s"${t.path}: no difference from $label found — every input up to size " +
+                                s"${v.size} (${v.small} of them) and ${v.random} random", Json.obj(
+                                "equivalent" -> Json.Bool(true), "small" -> Json.num(v.small),
+                                "random" -> Json.num(v.random), "size" -> Json.num(v.size)))
+                            case Right(v) =>
+                              answer(head, s"${t.path}: NOT equivalent to $label — on ${v.input}: now " +
+                                s"${v.now.stripPrefix("= ")}, $label ${v.before.stripPrefix("= ")}", Json.obj(
+                                "equivalent" -> Json.Bool(false), "input" -> Json.Str(v.input),
+                                "now" -> Json.Str(v.now), "before" -> Json.Str(v.before))))
+                      }
+                  }
+              }
+    }
+
   def more[R[_]: Has[Archive]](a: Json): String ! R =
     val id = need(a, "id")
     val from = int(a, "from", 1) max 1
@@ -671,6 +751,15 @@ object Tools:
         ("limit", "integer", "at most this many answers (default 100)"),
         ("format", "string", "json: the answers as data, for a program"), budget)("goal"), Fit.Compressed)(
       new Run { def apply[R[_]: Has[Code] : Has[Archive] : Has[Clock]](a: Json) = query[R](a) }),
+    tool("equivalent",
+      "Does a definition still behave as it did? It runs the definition now and at a git revision (`against`, HEAD " +
+        "by default) — or another definition — on every input up to a small size and on random ones, inputs from " +
+        "the parameters' types: a counterexample proves a difference. Use before calling a refactoring safe.",
+      schema(query, ("against", "string", "a git revision (default HEAD), or another definition's name"),
+        ("size", "integer", "every input up to this size (default 4)"),
+        ("trials", "integer", "random inputs (default 1000)"),
+        ("format", "string", "json: the answer as data"), budget)("query"), Fit.Compressed)(
+      new Run { def apply[R[_]: Has[Code] : Has[Archive] : Has[Clock]](a: Json) = equivalent[R](a) }),
     tool("more",
       "A page of an answer that was too long and was archived: its id is in that answer.",
       schema(("id", "string", "the archive id from a compressed or paged answer"),

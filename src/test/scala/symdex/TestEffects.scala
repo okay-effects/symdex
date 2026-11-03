@@ -13,7 +13,7 @@ import java.nio.file.{Files, Path}
 class TestEffects extends munit.FunSuite:
 
   type Asked[X] = (Clock + Archive + Code)[X]
-  type Below[X] = (Clock + Tasty + Disk + Code)[X]
+  type Below[X] = (Clock + Tasty + Disk + Exec + Code)[X]
 
   /** the fixtures this build compiles, read once from the real disk: the index the tests below are given */
   private val real = Symdex.Live(Path.of("."), include = f => f.module == "symdex:test")
@@ -63,8 +63,8 @@ class TestEffects extends munit.FunSuite:
       Right(Tasty.Read(Map(("src/test/scala/fixture/Shapes.scala", 3, 6) -> Span(3, 4, false)), 1, 0))
 
   private def below[A](disk: Disk.Memory, kept: Kept, reads: Reads, now: Long = 0)(p: A ! Below): A =
-    run(Clock.virtual(now)(Tasty.fixed(reads.apply)(Disk.memory(disk)(
-      Code.compiled(mem, kept, recheckMillis = 0)(p)))))._2
+    run(Clock.virtual(now)(Tasty.fixed(reads.apply)(Disk.memory(disk)(Exec.answered(_ => Left("no processes here"))(
+      Code.compiled(mem, kept, recheckMillis = 0)(p))))))._2
 
   test("the generation over files in memory: built, kept, rebuilt after a compile, a vanished file gone"):
     val disk = fixtureDisk()
