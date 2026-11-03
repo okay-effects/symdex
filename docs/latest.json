@@ -1,6 +1,6 @@
 {
-  "version": "0.7.0",
-  "zip": "https://github.com/okay-effects/symdex/releases/download/v0.7.0/symdex-0.7.0.zip",
-  "sha256": "38f98f16c2dcccb4bc54664a33c3aebf263b16d79e6af4675f49534d7af33dd1",
+  "version": "0.7.1",
+  "zip": "https://github.com/okay-effects/symdex/releases/download/v0.7.1/symdex-0.7.1.zip",
+  "sha256": "faf6fb6e3c73e716a4c5c756e55181973a89d08e1c6ae6c3a7dafef73a85388b",
   "java": 17
 }
