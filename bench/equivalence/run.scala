@@ -93,6 +93,10 @@ def agent(dir: os.Path, c: Case, withEquivalent: Boolean): Verdict =
 
 /** the working tree as the bench left it: `after/` over the sources, anything new removed; recompiled if it changed */
 def restore(dir: os.Path): Unit =
+  val first = os.proc("git", "rev-list", "--max-parents=0", "HEAD").call(cwd = dir).out.trim()
+  if os.proc("git", "rev-parse", "HEAD").call(cwd = dir).out.trim() != first then
+    println("  (the agent committed: HEAD put back)")
+    os.proc("git", "reset", "-q", "--soft", first).call(cwd = dir)
   val src = dir / "src" / "main" / "scala" / "app"
   val changed = os.list(here / "after").exists(f => !os.exists(src / f.last) || os.read(src / f.last) != os.read(f)) ||
     os.list(src).exists(f => !os.exists(here / "after" / f.last))
