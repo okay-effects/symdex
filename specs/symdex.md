@@ -388,6 +388,66 @@ references (callers, context), implementations, givens, members, modules, outlin
 stdio (initialize, tools/list, a call, an unknown tool) and the hook as a process (39 KB of `rg` in, a 4 KB digest
 out, the whole archived) as before.
 
+## v0.8 (2026-11-03): `query` — Datalog over the index
+
+The operator's decision (2026-11-03): Datalog in symdex itself, not only in okay-agent. The index already holds the
+relations a code-analysis engine needs (CodeQL is Datalog over a database of code facts); symdex serves them to a
+Datalog program and answers what no single tool answers and grep cannot: who calls X transitively, what a change to
+X can affect (through dispatch too), which tests to run after it, which modules a change reaches — each answer with
+its proof, down to the reference sites. The engine is the released library okay-datalog (okay-effects; the same
+program also runs in Workers and, later, compiled into weights — okay-inlay specs/datalog.md).
+
+### The relations (built per generation from the index and the definitions' spans)
+
+- `defined(S)`, `kind(S, K)` (method, class, trait, object, …), `named(S, N)`, `defined_in(S, F)`, `in_module(S, M)`
+- `ref_at(S, F, L)` — a reference to S at file F, line L
+- `calls_at(A, B, F, L)` — a reference to B inside the definition A (exact where TASTy gives spans; else the
+  nearest definition before it, as `references callers`), A ≠ B
+- `extends(A, B)`, `overrides(A, B)`, `given_for(T, G)`, `module_uses(M, N)`
+- `test(S)` — S defined in a test source (a module or path naming test)
+
+### The prelude (rules always present; goal-directed by seeds)
+
+```
+calls(A, B)            :- calls_at(A, B, _, _).
+callers(X, Y)          :- seed(X), calls(Y, X).            callers(X, Z) :- callers(X, Y), calls(Z, Y).
+implementers(X, Y)     :- seed(X), overrides(Y, X).        implementers(X, Y) :- seed(X), extends(Y, X).
+implementers(X, Z)     :- implementers(X, Y), overrides(Z, Y).
+implementers(X, Z)     :- implementers(X, Y), extends(Z, Y).
+up(X, B)               :- seed(X), overrides(X, B).        up(X, C) :- up(X, B), overrides(B, C).
+affects(X, Y)          :- callers(X, Y).                   affects(X, Y) :- implementers(X, Y).
+affects(X, Y)          :- up(X, B), calls(Y, B).           affects(X, Z) :- affects(X, Y), calls(Z, Y).
+tests_for(X, T)        :- affects(X, T), test(T).
+reaches(M, N)          :- seed(M), module_uses(N, M).      reaches(M, P) :- reaches(M, N), module_uses(P, N).
+```
+
+A transitive relation over a whole codebase can be quadratic; the prelude's relations start from `seed(X)`, so a
+query computes only what its goal reaches (a hand-made magic set). The seeds are the goal's first argument when it
+is a symbol (or every defined symbol when it is a variable — allowed, said in the answer).
+
+### The tool
+
+`query(goal, rules?, why?, limit?, budget?)`:
+- `goal` — an atom: `affects(@Tables.join, Y)`, `tests_for(@Bulk.joinSorted, T)`, `calls(A, @Use.total)`;
+  `@Name.path` names a symbol as the other tools resolve names (`Bulk.joinSorted`); a name meaning several symbols
+  seeds them all and the answer says which.
+- `rules` — more Datalog over the same relations (a project's own questions).
+- `why: true` — the proof of each shown answer: the steps, every `calls_at` with its file and line.
+- Answers: the bindings; a symbol shown with its kind and where it is defined; one generation header as every tool.
+
+### Behaviour
+
+- [ ] the relations from a fixed index (no disk): `calls_at` exact with spans given
+- [ ] `callers`, `affects` (with dispatch), `tests_for`, `reaches` on the fixtures
+- [ ] `@name` resolution, several symbols as several seeds
+- [ ] `why`: proofs whose leaves are the reference sites
+- [ ] errors as answers: a parse error, an unsafe rule, a cycle through negation, an unknown name
+
+### Measure (the rule: a tool that does not move the number does not ship)
+
+Agent tasks of the impact kind on okay (rename a widely used method; change a trait's signature; which tests to run
+after editing X): with symdex v0.7 against v0.8 — turns, wrong or missed sites, tests run. Results here.
+
 ## Where the general parts go
 
 - MCP server features the tools need (structured results, pagination): okay-mcp.
