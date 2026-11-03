@@ -456,6 +456,78 @@ T)` 8 tests. The tool list costs 1,832 tokens with `query` against 1,517 without
 Agent tasks of the impact kind on okay (rename a widely used method; change a trait's signature; which tests to run
 after editing X): with symdex v0.7 against v0.8 — turns, wrong or missed sites, tests run. Results here.
 
+## v0.9 (2026-11-03, planned): behaviour — equivalence, types, effects
+
+The operator's decision (2026-11-03): agents should understand what code DOES — types, equivalence, semantics — and
+this belongs in symdex itself: v0.8 answers what a codebase IS (structure, with Datalog over it); v0.9 answers how it
+BEHAVES, from the sources of truth — the compiler and execution — never from a guess. The model leads (what to ask,
+when); the exact part answers.
+
+### New effects (the rule: a tool is a program over effects)
+
+- `Build` — the project as built: its compiled classpath (written by sbt-symdex, `symdexClasspath` → 
+  `.symdex/classpath.txt`; for other builds a file given), its source roots, a file's text at a git revision.
+- `Run` — a generated program compiled against that classpath and run in a sandbox subprocess, with a timeout and no
+  network; its output read back. Handlers: the real one (a process: scala-cli or the Scala 3 compiler, then `java`), a
+  fixed one in tests (answers given).
+
+### Tools (the context diet: few, each earning its tokens)
+
+1. **`equivalent(query, against?, size?, trials?)`** — first. Does the definition named by `query` behave as it did
+   (`against`: a git revision, `HEAD` by default; or another definition)? The old definition is read from git by its
+   TASTy span (symdex has the spans), put beside the new one in a generated harness in the same package, both run on
+   **every input up to a small size** (`size`, default 4: `None`, `Nil`, `0`, `""`, edges) and on `trials` random
+   inputs (default 1000), inputs derived from the parameters' types (Int, Long, Boolean, String, Option, List, Vector,
+   Set, Map, Either, tuples, case classes by their `Mirror`). Results compared by `==`; a thrown exception compared as
+   a value (its class). Answers: **not equivalent — a counterexample** (the input, both results: a proof), or **no
+   difference found** — with what was covered (all inputs up to size k, N random). Refuses, saying why: a definition
+   that is not a pure function of its parameters (reads mutable state, does I/O — by its SemanticDB references), a
+   parameter type with no generator, a timeout.
+2. **`type(at | expr)`** — later. The type of an expression in context, the givens it resolves, the reduction of a
+   match type — from the Scala 3 presentation compiler on the source as it is now (no build needed).
+3. **`behaviour`** — later, maybe merged into the two above: an expression's value on given inputs; a program over
+   okay effects run under a handler with an observing interceptor (the operations performed, how often a continuation
+   was resumed, the result).
+
+`behavior_diff` is not a tool but a recipe: `query affects(@X, Y)` for what a change reaches, `equivalent` for each.
+
+### With okay-guard
+
+A refactoring's commit allowed only when `equivalent` passed for the changed definitions since the last edit (a fact
+`from symdex`, as `in_task_scope`; okay-guard specs/reasoning.md).
+
+### Measure
+
+1. **Equivalence** (the main one): pairs before/after from real code (okay-*, symdex) — refactorings that keep
+   behaviour, and subtle mutations that break it (`None` vs empty, `head` vs `headOption`, the order of effects,
+   laziness, short-circuiting, `foldLeft` vs `foldRight`, `Set` vs `List`); the truth known by construction. "Is the
+   change safe? If not, a counterexample." Metrics: accuracy, the share of false "safe" (the dangerous error), the
+   counterexamples' validity (run).
+2. **Types**: snippets with match types, givens, type-class derivation, extension methods; "which type / which given /
+   does it compile"; the truth from the compiler.
+3. **Effects**: okay-effects programs under handlers (state, nondeterminism resumed many times, interceptors); "what
+   does it return, in what order"; the truth by running.
+4. **End to end**: refactoring tasks on okay-agent's bench with hidden behaviour tests (made by mutation): how many
+   silent behaviour changes an agent makes with the tools and without.
+
+Arms everywhere: the agent alone; with the tools; with the tools and okay-guard's rule (Qwen3.6-35B on okay-agent;
+Claude for reference).
+
+### The demo
+
+"A silent break": the agent rewrites an `Option` / `Either` chain as a for-comprehension. Without the tool: "behaviour
+unchanged" — a hidden test fails on `Some(Nil)`. With it: `equivalent` → the counterexample `Some(Nil)` → fixed → "no
+difference on every input up to size 4 and 1000 random"; okay-guard's journal shows the commit allowed only after it.
+
+### Stages
+
+1. `Build`: `symdexClasspath` in sbt-symdex; reading a file at a revision.
+2. `Run` and the harness: generators by types, exhaustive small inputs + random, comparison, exceptions as values.
+3. `equivalent`: the old definition by its span from git, the purity check, the answers; fixtures; tests with `Run`
+   fixed and with the real one.
+4. The equivalence benchmark (mutations of real code) and the demo on okay-agent.
+5. `type` (presentation compiler) and its benchmark; then effects.
+
 ## Where the general parts go
 
 - MCP server features the tools need (structured results, pagination): okay-mcp.
