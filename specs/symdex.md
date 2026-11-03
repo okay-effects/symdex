@@ -430,18 +430,24 @@ is a symbol (or every defined symbol when it is a variable — allowed, said in 
 `query(goal, rules?, why?, limit?, budget?)`:
 - `goal` — an atom: `affects(@Tables.join, Y)`, `tests_for(@Bulk.joinSorted, T)`, `calls(A, @Use.total)`;
   `@Name.path` names a symbol as the other tools resolve names (`Bulk.joinSorted`); a name meaning several symbols
-  seeds them all and the answer says which.
+  becomes a variable (`At1`, `At2`, …) ranging over them — in the first argument they are the seeds — and each
+  answer says which; in `rules` several symbols are an error naming them.
 - `rules` — more Datalog over the same relations (a project's own questions).
 - `why: true` — the proof of each shown answer: the steps, every `calls_at` with its file and line.
 - Answers: the bindings; a symbol shown with its kind and where it is defined; one generation header as every tool.
 
 ### Behaviour
 
-- [ ] the relations from a fixed index (no disk): `calls_at` exact with spans given
-- [ ] `callers`, `affects` (with dispatch), `tests_for`, `reaches` on the fixtures
-- [ ] `@name` resolution, several symbols as several seeds
-- [ ] `why`: proofs whose leaves are the reference sites
-- [ ] errors as answers: a parse error, an unsafe rule, a cycle through negation, an unknown name
+- [x] the relations from a fixed index (no disk) (`TestQuery`)
+- [x] `callers`, `affects` (with dispatch: the implementers of `Shape.area` and the callers of the abstract member)
+- [x] `@name` resolution, several symbols as a variable over them (first argument and others)
+- [x] `why`: proofs whose leaves are the reference sites (`calls_at(…, file, line)`)
+- [x] errors as answers: a parse error, an unsafe rule, a cycle through negation, an unknown name
+- [x] rules of the caller's (`leaf(S) :- defined(S), kind(S, method), not called(S).`)
+
+First results (2026-11-03, on symdex itself, 27 files): `affects(@Index.enclosing, Y)` 27 answers in 557 ms
+(the facts built, TASTy read), then queries in 14–17 ms (the facts kept per generation); `tests_for(@CodeFacts.facts,
+T)` 8 tests. The tool list costs 1,832 tokens with `query` against 1,517 without (lean: 922 against 790).
 
 ### Measure (the rule: a tool that does not move the number does not ship)
 

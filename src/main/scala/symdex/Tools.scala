@@ -502,6 +502,76 @@ object Tools:
     }
 
   /** a page of an archived answer: lines [from, from + lines) */
+  /**
+   * DATALOG OVER THE INDEX (specs/symdex.md, v0.8): a goal over the code relations and the prelude (and rules of
+   * the caller's), evaluated by okay-datalog; each answer's symbols shown with their kind and place, and with
+   * `why` the proof of the first answers down to the reference sites.
+   */
+  def query[R[_]: Has[Code] : Has[Clock]](a: Json): String ! R =
+    val goalText = need(a, "goal")
+    val why = bool(a, "why")
+    val limit = int(a, "limit", 100)
+    generation[R].flatMap { (g, head) =>
+      val ix = g.index
+      val roots = ix.entries.map(_.db.root).distinct
+      each(roots)(r => Code.table[R](r).map(r -> _)).flatMap { tables =>
+        Code.root[R].map { root =>
+          val tableOf = tables.toMap.withDefaultValue(SpanTable.empty)
+          val answer = for
+            goalR <- CodeFacts.resolveNames(ix, goalText, goal = true)
+            rulesR <- str(a, "rules").fold(Right(CodeFacts.Resolved("", Vector.empty)))(
+              CodeFacts.resolveNames(ix, _, goal = false))
+            goal <- okay.datalog.Parse.atom(goalR.text).left.map(e => s"the goal: $e")
+            // an @name meaning several symbols: a variable that ranges over them, through a rule asking the goal
+            alts = goalR.alternatives.map((v, syms) => (v, s"alt_${v.toLowerCase}", syms))
+            asked =
+              if alts.isEmpty then goal
+              else okay.datalog.Atom("asked", goal.vars.distinct.map(okay.datalog.Term.Var(_)))
+            helper = okay.datalog.Program(
+              if alts.isEmpty then Vector.empty
+              else Vector(okay.datalog.Rule(asked, okay.datalog.Literal.Pos(goal) +: alts.map((v, p, _) =>
+                okay.datalog.Literal.Pos(okay.datalog.Atom(p, Vector(okay.datalog.Term.Var(v))))))))
+            extra <- okay.datalog.Parse.program(rulesR.text).left.map(e => s"the rules: $e")
+            seeds = goal.args.headOption match
+              case Some(okay.datalog.Term.Const(c)) => Vector(c)
+              case _ if goalR.seeds.nonEmpty => goalR.seeds
+              case _ if CodeFacts.seeded(goal.pred) =>
+                if goal.pred == "reaches" then ix.modules else ix.definitions.keys.toVector.sorted
+              case _ => Vector.empty
+            facts = CodeFacts.cached(g, root, tableOf) ++ seeds.map(s => okay.datalog.Fact("seed", Vector(s))) ++
+              alts.flatMap((_, p, syms) => syms.map(s => okay.datalog.Fact(p, Vector(s))))
+            result <- okay.datalog.Eval.run(CodeFacts.prelude ++ extra ++ helper, facts, proofs = why)
+          yield render(ix, goal, asked, result, alts.map((v, _, s) => v -> s.size), seeds.size, limit, why)
+          (head +: Vector(answer.fold(e => s"query: $e", identity))).mkString("\n")
+        }
+      }
+    }
+
+  private def render(ix: Index, goal: okay.datalog.Atom, asked: okay.datalog.Atom, result: okay.datalog.Result,
+                     named: Vector[(String, Int)], seeded: Int, limit: Int, why: Boolean): String =
+    def shown(v: String): String =
+      if ix.infos.contains(v) || ix.definitions.contains(v) then s"$v  (${describe(ix, v)})  ${where(ix, v)}" else v
+    val all = result.query(asked)
+    val rows = all.take(limit)
+    val seedNote =
+      if named.nonEmpty then
+        "; " + named.map((v, n) => s"$v: one of $n symbols of that name").mkString(", ") + " (the answers say which)"
+      else if seeded > 1 then s"; seeded with $seeded symbols (the first argument a variable)"
+      else ""
+    val title = s"$goal — ${all.size} answers$seedNote" + (if all.size > limit then s", the first $limit shown" else "")
+    val body = rows.map(b => "  " + b.toVector.sortBy(_._1).map((k, v) => s"$k = ${shown(v)}").mkString("; "))
+    val proofs =
+      if !why then Vector.empty
+      else rows.take(5).flatMap { b =>
+        val fact = okay.datalog.Fact(asked.pred, asked.args.map {
+          case okay.datalog.Term.Const(c) => c
+          case okay.datalog.Term.Var(v) => b(v)
+        })
+        result.proof(fact).toVector.flatMap(steps => s"why $fact:" +: steps.map(s => "    " + s.toString))
+      }
+    val none = if all.isEmpty then Vector(s"  (no answers; the relations: ${CodeFacts.relations})") else Vector.empty
+    (title +: (body ++ none ++ proofs)).mkString("\n")
+
   def more[R[_]: Has[Archive]](a: Json): String ! R =
     val id = need(a, "id")
     val from = int(a, "from", 1) max 1
@@ -578,6 +648,16 @@ object Tools:
         "a file to learn what is in it; then `source` the one you need.",
       schema(("file", "string", "a path, or its tail (`Tables.scala`)"), budget)("file"), Fit.Compressed)(
       new Run { def apply[R[_]: Has[Code] : Has[Archive] : Has[Clock]](a: Json) = outline[R](a) }),
+    tool("query",
+      "Datalog over the index: what no single tool answers — who calls X transitively, what a change to X affects " +
+        "(dispatch included), which tests to run after it, which modules a change reaches; with proofs down to the " +
+        "reference sites. Prelude: callers(X,Y), implementers(X,Y), affects(X,Y), tests_for(X,T), reaches(M,N); " +
+        s"relations: ${CodeFacts.relations}. `@Name.path` names a symbol.",
+      schema(("goal", "string", "an atom: affects(@Tables.join, Y), tests_for(@Use.total, T), calls(A, @Use.total)"),
+        ("rules", "string", "more Datalog rules over the same relations"),
+        ("why", "boolean", "the proof of the first answers"),
+        ("limit", "integer", "at most this many answers (default 100)"), budget)("goal"), Fit.Compressed)(
+      new Run { def apply[R[_]: Has[Code] : Has[Archive] : Has[Clock]](a: Json) = query[R](a) }),
     tool("more",
       "A page of an answer that was too long and was archived: its id is in that answer.",
       schema(("id", "string", "the archive id from a compressed or paged answer"),

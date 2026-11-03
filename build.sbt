@@ -10,7 +10,8 @@ ThisBuild / scalacOptions ++= Seq("-Wunused:all", "-Werror")
 ThisBuild / resolvers ++= Seq(
   "okay-scala" at "https://okay-effects.github.io/okay-scala/maven",
   "okay-simple" at "https://okay-effects.github.io/okay-simple/maven",
-  "okay-mcp" at "https://okay-effects.github.io/okay-mcp/maven")
+  "okay-mcp" at "https://okay-effects.github.io/okay-mcp/maven",
+  "okay-datalog" at "https://okay-effects.github.io/okay-datalog/maven")
 
 lazy val symdex = (project in file("."))
   .settings(
@@ -26,6 +27,8 @@ lazy val symdex = (project in file("."))
       // the MCP server, on okay-scala's machine through okay-simple's adapter
       "io.github.okay-effects" %% "okay-mcp" % "0.1.0",
       "io.github.okay-effects" %% "okay-effects-cek" % "0.1.1",
+      // Datalog over the index: the `query` tool (specs/symdex.md, v0.8)
+      "io.github.okay-effects" %% "okay-datalog" % "0.1.0",
       // TASTy, for what SemanticDB lacks: definition spans, extension flags
       "ch.epfl.scala" %% "tasty-query" % "1.9.0",
       "org.scalameta" %% "munit" % "1.1.1" % Test,
