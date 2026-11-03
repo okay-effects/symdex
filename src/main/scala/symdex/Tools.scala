@@ -511,6 +511,8 @@ object Tools:
     val goalText = need(a, "goal")
     val why = bool(a, "why")
     val limit = int(a, "limit", 100)
+    // `format: json`: the answers as data, for a program (okay-guard's facts `from symdex`), no header
+    val json = str(a, "format").contains("json")
     generation[R].flatMap { (g, head) =>
       val ix = g.index
       val roots = ix.entries.map(_.db.root).distinct
@@ -541,11 +543,21 @@ object Tools:
             facts = CodeFacts.cached(g, root, tableOf) ++ seeds.map(s => okay.datalog.Fact("seed", Vector(s))) ++
               alts.flatMap((_, p, syms) => syms.map(s => okay.datalog.Fact(p, Vector(s))))
             result <- okay.datalog.Eval.run(CodeFacts.prelude ++ extra ++ helper, facts, proofs = why)
-          yield render(ix, goal, asked, result, alts.map((v, _, s) => v -> s.size), seeds.size, limit, why)
-          (head +: Vector(answer.fold(e => s"query: $e", identity))).mkString("\n")
+          yield
+            if json then asJson(goal, asked, result, limit)
+            else render(ix, goal, asked, result, alts.map((v, _, s) => v -> s.size), seeds.size, limit, why)
+          if json then answer.fold(e => Json.print(Json.obj("error" -> Json.Str(e))), identity)
+          else (head +: Vector(answer.fold(e => s"query: $e", identity))).mkString("\n")
         }
       }
     }
+
+  /** the answers as JSON: `{"goal", "count", "answers": [{"X": "…"}, …]}` (the first `limit`) */
+  private def asJson(goal: okay.datalog.Atom, asked: okay.datalog.Atom, result: okay.datalog.Result, limit: Int): String =
+    val all = result.query(asked)
+    Json.print(Json.obj("goal" -> Json.Str(goal.toString), "count" -> Json.num(all.size),
+      "answers" -> Json.Arr(all.take(limit).map(b => Json.Obj(b.toVector.sortBy(_._1).map((k, v) => k -> Json.Str(v))))
+        .toVector)))
 
   private def render(ix: Index, goal: okay.datalog.Atom, asked: okay.datalog.Atom, result: okay.datalog.Result,
                      named: Vector[(String, Int)], seeded: Int, limit: Int, why: Boolean): String =
@@ -656,7 +668,8 @@ object Tools:
       schema(("goal", "string", "an atom: affects(@Tables.join, Y), tests_for(@Use.total, T), calls(A, @Use.total)"),
         ("rules", "string", "more Datalog rules over the same relations"),
         ("why", "boolean", "the proof of the first answers"),
-        ("limit", "integer", "at most this many answers (default 100)"), budget)("goal"), Fit.Compressed)(
+        ("limit", "integer", "at most this many answers (default 100)"),
+        ("format", "string", "json: the answers as data, for a program"), budget)("goal"), Fit.Compressed)(
       new Run { def apply[R[_]: Has[Code] : Has[Archive] : Has[Clock]](a: Json) = query[R](a) }),
     tool("more",
       "A page of an answer that was too long and was archived: its id is in that answer.",
@@ -683,6 +696,8 @@ object Tools:
           val answer = t.run[R](a)
           (t.fit match
             case Fit.Paged => answer.flatMap(paged[R](a))
+            // data for a program is never compressed: its reader parses it whole
+            case Fit.Compressed if str(a, "format").contains("json") => answer
             case Fit.Compressed => answer.flatMap(compressed[R](a))).map(Right(_))
         }
 

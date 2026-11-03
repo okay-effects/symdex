@@ -58,3 +58,11 @@ class TestQuery extends munit.FunSuite:
     assert(ask("callers(@NoSuchThing, Y)").contains("nothing named 'NoSuchThing'"))
     assert(ask("callers(X Y)").contains("query: the goal"))
     assert(ask("p(X)", "rules" -> Json.Str("p(X) :- defined(X), not p(X).")).contains("not stratifiable"))
+
+  test("format json: the answers as data for a program, no header, never compressed; an error as data too"):
+    val out = ask("callers(@Use.total, Y)", "format" -> Json.Str("json"), "budget" -> Json.num(40))
+    val j = okay.effects.json.Descent.parse(out).toOption.get
+    assertEquals(j.field("count"), Some(Json.num(2)))
+    assert(out.contains("\"Y\":\"fixture/Use.report().\"") || out.contains("\"Y\": \"fixture/Use.report().\""), out)
+    val bad = ask("callers(X Y)", "format" -> Json.Str("json"))
+    assert(okay.effects.json.Descent.parse(bad).toOption.flatMap(_.field("error")).nonEmpty, bad)

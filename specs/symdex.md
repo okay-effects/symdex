@@ -434,6 +434,8 @@ is a symbol (or every defined symbol when it is a variable — allowed, said in 
   answer says which; in `rules` several symbols are an error naming them.
 - `rules` — more Datalog over the same relations (a project's own questions).
 - `why: true` — the proof of each shown answer: the steps, every `calls_at` with its file and line.
+- `format: json` — the answers as data (`{"goal", "count", "answers": [{"X": …}]}`) for a program: no header, never
+  compressed (okay-guard's facts `from symdex`).
 - Answers: the bindings; a symbol shown with its kind and where it is defined; one generation header as every tool.
 
 ### Behaviour

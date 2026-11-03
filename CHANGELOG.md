@@ -5,6 +5,11 @@ released as a zip on GitHub) and **sbt-symdex** (the sbt plugin, served from
 GitHub Pages). A plugin release names the symdex release it downloads;
 the plugin's own version may run ahead of it.
 
+## symdex 0.7.1 — 2026-11-03
+
+- `query format=json`: the answers as data (`{"goal", "count", "answers"}`), no header, never compressed — for a
+  program; okay-guard's facts `from symdex` read it.
+
 ## symdex 0.7.0 — 2026-11-03
 
 - `query`: Datalog over the index (okay-datalog 0.1.0) — transitive callers, what a change affects (dispatch
