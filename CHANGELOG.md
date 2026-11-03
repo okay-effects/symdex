@@ -5,6 +5,12 @@ released as a zip on GitHub) and **sbt-symdex** (the sbt plugin, served from
 GitHub Pages). A plugin release names the symdex release it downloads;
 the plugin's own version may run ahead of it.
 
+## symdex 0.7.0 — 2026-11-03
+
+- `query`: Datalog over the index (okay-datalog 0.1.0) — transitive callers, what a change affects (dispatch
+  included), the tests to run after it, the modules a change reaches; rules of your own over the code relations;
+  proofs down to the reference sites (specs/symdex.md, v0.8). The tool list: 11 tools, ~1,832 tokens (lean ~922).
+
 ## sbt-symdex 0.6.0 — 2026-10-29, republished 2026-11-02
 
 - Downloads symdex 0.6.0 (on effects).

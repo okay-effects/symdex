@@ -264,6 +264,31 @@ says what it uses, what uses it, and every module a change there can reach.
 A dependency here is a USE — code in one module naming a symbol defined in
 another — read from references, not from the build's `dependsOn`.
 
+### query — Datalog over the index: transitive callers, impact, tests to run
+
+What no single tool answers and grep cannot: who calls X **transitively**, what a change to X **affects** (through
+dispatch too), **which tests** to run after it, which modules a change **reaches** — each answer with its proof, down
+to the reference sites. A Datalog program (okay-datalog) over the index's relations; `@Name.path` names a symbol.
+
+```
+symdex query 'goal=tests_for(@CodeFacts.facts, T)'
+[generation 1, 26 files, built 0s ago, ~191 tokens]
+tests_for("symdex/CodeFacts.facts().", T) — 7 answers
+  T = symdex/TestQuery#  (class)  src/test/scala/symdex/TestQuery.scala:10:7
+  T = symdex/TestQuery#ask().  (method)  src/test/scala/symdex/TestQuery.scala:17:15
+  …
+```
+
+- The prelude: `callers(X, Y)`, `implementers(X, Y)`, `affects(X, Y)`, `tests_for(X, T)`, `reaches(M, N)` — they start
+  from the goal's first argument, so only what it reaches is computed.
+- The relations: `defined(S)`, `kind(S, K)`, `named(S, N)`, `defined_in(S, F)`, `in_module(S, M)`, `ref_at(S, F, L)`,
+  `calls_at(A, B, F, L)` (a reference to B inside A), `calls(A, B)`, `extends(A, B)`, `overrides(A, B)`,
+  `given_for(T, G)`, `module_uses(M, N)`, `test(S)`.
+- `rules` — your own: `rules='leaf(S) :- defined(S), kind(S, method), not called(S). called(S) :- calls(_, S).'`
+  with `goal=leaf(S)`.
+- `why=true` — the proof of the first answers: each step, every `calls_at` with its file and line.
+- A name meaning several symbols becomes a variable (`At1`, …) over them; the answers say which.
+
 ### status — what the index covers
 
 Its generation and age, how many files, modules, symbols and occurrences,

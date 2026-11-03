@@ -15,7 +15,7 @@ import java.nio.file.Path
  * on okay-scala's machine through okay-simple's adapter: a call is its tool's program run in that line.
  */
 object Symdex:
-  val version = "0.6.0"
+  val version = "0.7.0"
 
   private val usage =
     """symdex — structural code intelligence over SemanticDB, TASTy and SCIP
@@ -28,8 +28,9 @@ object Symdex:
       |  symdex hook                             a Claude Code PostToolUse hook (bin/symdex-hook)
       |
       |tools: definition, references, implementations, givens, members, modules,
-      |       outline, source, more, status            (docs: GUIDE.md)
-      |e.g.   symdex references query=Bulk.joinSorted callers=true""".stripMargin
+      |       outline, source, more, status, query     (docs: GUIDE.md)
+      |e.g.   symdex references query=Bulk.joinSorted callers=true
+      |       symdex query 'goal=tests_for(@Bulk.joinSorted, T)'   (Datalog over the index)""".stripMargin
 
   /** the effects every tool may perform, and what `Code`'s handler performs below them */
   type Asked[X] = (Clock + Tasty + Disk + Archive + Code)[X]
