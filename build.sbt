@@ -31,6 +31,8 @@ lazy val symdex = (project in file("."))
       "io.github.okay-effects" %% "okay-datalog" % "0.1.0",
       // TASTy, for what SemanticDB lacks: definition spans, extension flags
       "ch.epfl.scala" %% "tasty-query" % "1.9.0",
+      // the compiler's answers on the sources as they are: the `type` tool (specs/symdex.md, v0.9)
+      "org.scala-lang" %% "scala3-presentation-compiler" % scalaVersion.value,
       "org.scalameta" %% "munit" % "1.1.1" % Test,
     ),
   )

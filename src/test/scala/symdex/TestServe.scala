@@ -26,14 +26,14 @@ class TestServe extends munit.FunSuite:
     result.field("content").collect { case Json.Arr(cs) => cs }.getOrElse(Vector.empty)
       .flatMap(_.field("text")).collect { case Json.Str(s) => s }.mkString
 
-  test("initialize, then tools/list names the twelve tools"):
+  test("initialize, then tools/list names the thirteen tools"):
     val out = talk(Tools.specs, hello, line(Rpc.Request(Json.num(2), "tools/list", Json.Obj.empty)))
     assertEquals(answer(out(0)).field("serverInfo").flatMap(_.field("name")), Some(Json.Str("symdex")))
     val names = answer(out(1)).field("tools").collect { case Json.Arr(ts) => ts }.getOrElse(Vector.empty)
       .flatMap(_.field("name")).collect { case Json.Str(n) => n }.toSet
     assertEquals(names,
       Set("definition", "references", "implementations", "givens", "members", "modules", "status", "source",
-        "outline", "more", "query", "equivalent"))
+        "outline", "more", "query", "equivalent", "type"))
 
   test("a lean, narrowed server: only the tools asked for, terse schemas, fewer tokens"):
     val full = Tools.serving(None, lean = false)
@@ -50,7 +50,7 @@ class TestServe extends munit.FunSuite:
   test("every answer says what it costs"):
     val r = live.call("status", Json.Obj.empty).fold(identity, identity)
     assert("""~\d+ tokens\]""".r.findFirstIn(r.linesIterator.next()).isDefined, r)
-    assert(r.contains("tool schemas: 12 tools"), r)
+    assert(r.contains("tool schemas: 13 tools"), r)
 
   test("tools/call answers; a missing argument is an isError answer"):
     val out = talk(Tools.specs, hello, call(3, "references", "query" -> Json.Str("Use.total")), call(4, "references"))

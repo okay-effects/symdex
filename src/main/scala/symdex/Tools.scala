@@ -594,6 +594,98 @@ object Tools:
    * `trials` random ones, inputs from the parameters' types. A counterexample is a proof of difference; no
    * difference found says what was covered.
    */
+  /**
+   * TYPE (specs/symdex.md, v0.9): the compiler's answer on the sources as they are — `expr`'s type in context, `code`
+   * checked, or the signature `at` a place. The context: `in` (a definition's name, or a file), else the file defining
+   * `expr`'s or `code`'s first name; the probe an object appended to that file, so its package and imports hold.
+   */
+  def typeOf[R[_]: Has[Code] : Has[Clock]](a: Json): String ! R =
+    val expr = str(a, "expr").map(_.trim).filter(_.nonEmpty)
+    val code = str(a, "code").map(_.trim).filter(_.nonEmpty)
+    val at = str(a, "at").map(_.trim).filter(_.nonEmpty)
+    val json = str(a, "format").contains("json")
+    def answer(head: String, text: String, data: => Json): String = if json then Json.print(data) else s"$head\n$text"
+    generation[R].flatMap { (g, head) =>
+      val ix = g.index
+      def refuse(why: String) = pure[String, R](answer(head, why, Json.obj("error" -> Json.Str(why))))
+      // the file of a definition named, of a file given, or of the first name in a text
+      def fileOf(name: String): Either[String, Entry] =
+        ix.entryFor(name).orElse(ix.entries.find(_.file.endsWith(name)).filter(_ => name.endsWith(".scala")))
+          .toRight(()).left.flatMap(_ =>
+            symbolsOf(ix, name).flatMap(ss => ss.flatMap(s => ix.definitions.get(s).toVector.flatten).headOption
+              .toRight(s"$name: not defined in the index"))
+              .flatMap(l => ix.entryFor(l.file).toRight(s"${l.file}: not indexed")))
+      def firstName(text: String) = """[A-Za-z_][\w$]*(\.[A-Za-z_][\w$]*)?""".r.findFirstIn(text).getOrElse("")
+      val place: Either[String, (Entry, Option[(Int, Int)])] = at match
+        case Some(spec) => spec.split(':').toList.reverse match
+          case c :: l :: rest if c.forall(_.isDigit) && l.forall(_.isDigit) && c.nonEmpty && l.nonEmpty =>
+            fileOf(rest.reverse.mkString(":")).map(e => (e, Some((l.toInt, c.toInt))))
+          case _ => Left(s"at: `file:line:column`, not $spec")
+        case None =>
+          val ctx = str(a, "in").map(_.trim).filter(_.nonEmpty)
+            .orElse(expr.orElse(code).map(firstName).filter(_.nonEmpty))
+          ctx.toRight("type: give `expr`, `code` or `at` (and `in`, the context: a definition or a file)")
+            .flatMap(fileOf).map(e => (e, None))
+      place match
+        case Left(why) => refuse(why)
+        case Right((e, pos)) =>
+          Code.classpath[R](e.db.root).flatMap {
+            case None => refuse(s"no classpath for ${e.file}: `sbt symdexIndex` writes it (sbt-symdex 0.8)")
+            case Some(built) =>
+              val cp = built.classpath
+              Code.lines[R](e.source).flatMap { ls =>
+                val text = ls.mkString("\n")
+                (pos, expr, code) match
+                  case (Some((l, c)), _, _) =>
+                    val offset = ls.take(l - 1).map(_.length + 1).sum + (c - 1)
+                    Code.hover[R](cp, e.source, text, offset).flatMap {
+                      case Left(why) => refuse(why)
+                      case Right(sig) => pure(answer(head, if sig.isEmpty then s"${e.file}:$l:$c: nothing there"
+                        else s"${e.file}:$l:$c: $sig", Json.obj("signature" -> Json.Str(sig))))
+                    }
+                  case (None, Some(x), _) =>
+                    val probe = s"$text\n\nobject SymdexProbe:\n  val probe = $x\n"
+                    val from = ls.size + 2
+                    Code.problems[R](cp, e.source, probe).flatMap {
+                      case Left(why) => refuse(why)
+                      case Right(ps) if ps.exists(_.line >= from) =>
+                        val errs = ps.filter(_.line >= from).map(_.message)
+                        pure(answer(head, s"$x does not compile:\n" + errs.map("  " + _).mkString("\n"),
+                          Json.obj("compiles" -> Json.Bool(false), "errors" -> Json.Arr(errs.map(Json.Str(_))))))
+                      case Right(_) =>
+                        Code.hover[R](cp, e.source, probe, probe.lastIndexOf("val probe") + 4).flatMap {
+                          case Left(why) => refuse(why)
+                          case Right(sig) =>
+                            val t = sig.stripPrefix("val probe:").trim
+                            pure(answer(head, s"$x: $t", Json.obj("compiles" -> Json.Bool(true), "type" -> Json.Str(t))))
+                        }
+                    }
+                  case (None, None, Some(d)) =>
+                    val body = d.linesIterator.map("  " + _).mkString("\n")
+                    val probe = s"$text\n\nobject SymdexProbe:\n$body\n"
+                    val from = ls.size + 2
+                    Code.problems[R](cp, e.source, probe).flatMap {
+                      case Left(why) => refuse(why)
+                      case Right(ps) if ps.exists(_.line >= from) =>
+                        val errs = ps.filter(_.line >= from).map(p => s"line ${p.line - from}: ${p.message}")
+                        pure(answer(head, "does not compile:\n" + errs.map("  " + _).mkString("\n"),
+                          Json.obj("compiles" -> Json.Bool(false), "errors" -> Json.Arr(errs.map(Json.Str(_))))))
+                      case Right(_) =>
+                        val name = """(?:def|val|lazy val|var)\s+([A-Za-z_][\w$]*)""".r.findFirstMatchIn(d)
+                          .map(_.group(1))
+                        val off = name.map(n => probe.indexOf(n, text.length)).getOrElse(-1)
+                        (if off < 0 then pure[Either[String, String], R](Right(""))
+                         else Code.hover[R](cp, e.source, probe, off)).flatMap { sig =>
+                          val s = sig.getOrElse("")
+                          pure(answer(head, s"compiles${if s.nonEmpty then s": $s" else ""}",
+                            Json.obj("compiles" -> Json.Bool(true), "signature" -> Json.Str(s))))
+                        }
+                    }
+                  case _ => refuse("type: give `expr`, `code` or `at`")
+              }
+          }
+    }
+
   def equivalent[R[_]: Has[Code] : Has[Clock]](a: Json): String ! R =
     val q = need(a, "query")
     val against = str(a, "against").getOrElse("HEAD")
@@ -761,6 +853,15 @@ object Tools:
         ("limit", "integer", "at most this many answers (default 100)"),
         ("format", "string", "json: the answers as data, for a program"), budget)("goal"), Fit.Compressed)(
       new Run { def apply[R[_]: Has[Code] : Has[Archive] : Has[Clock]](a: Json) = query[R](a) }),
+    tool("type",
+      "The compiler's answer, no build: `expr` — its TYPE in context (or the errors); `code` — a definition checked " +
+        "(compiles, its signature, or the errors); `at` — `file:line:column`, the signature there. Context: `in` (a " +
+        "definition's name or a file), else the file of the first name used. Before writing a call you are not sure of.",
+      schema(("expr", "string", "an expression, its names qualified as from outside (`Orders.total(xs)`)"),
+        ("code", "string", "a whole definition to check"), ("at", "string", "file:line:column"),
+        ("in", "string", "the context: a definition's name or a file"), ("format", "string", "json: the answer as data"),
+        budget)(), Fit.Compressed)(
+      new Run { def apply[R[_]: Has[Code] : Has[Archive] : Has[Clock]](a: Json) = typeOf[R](a) }),
     tool("equivalent",
       "Does a definition still behave as it did? Give its NAME (`Orders.total`), not its code. It runs it now " +
         "and at a git revision (`against`, HEAD by default) — or another definition — on every input up to a " +

@@ -33,7 +33,7 @@ object Symdex:
       |       symdex query 'goal=tests_for(@Bulk.joinSorted, T)'   (Datalog over the index)""".stripMargin
 
   /** the effects every tool may perform, and what `Code`'s handler performs below them */
-  type Asked[X] = (Clock + Tasty + Disk + Exec + Archive + Code)[X]
+  type Asked[X] = (Clock + Tasty + Disk + Exec + Typer + Archive + Code)[X]
 
   /**
    * One project's symdex: what it keeps between calls (`Kept`, the archive), and its programs run with the
@@ -43,8 +43,8 @@ object Symdex:
     val kept: Kept = Kept()
     val archive: Archive.Store = Archive.Store()
     def run[A](p: A ! Asked): A =
-      okay.scala3.run(Clock.system(Tasty.query(Disk.real(Exec.real(Archive.memory(archive)(
-        Code.compiled(root, kept, include, recheckMillis)(p)))))))
+      okay.scala3.run(Clock.system(Tasty.query(Disk.real(Exec.real(Typer.compiler(Archive.memory(archive)(
+        Code.compiled(root, kept, include, recheckMillis)(p))))))))
     /** a tool called: its answer, or why not */
     def call(name: String, args: Json): Either[String, String] =
       try run(Tools.call[Asked](name, args))

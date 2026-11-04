@@ -46,6 +46,10 @@ enum Code[X]:
   case AtRevision(source: Path, rev: String) extends Code[Option[String]]
   /** a program compiled against the project and run: its standard output, or why not (specs/symdex.md, v0.9) */
   case Execute(program: Program) extends Code[Either[String, String]]
+  /** the compiler on a file's text over a classpath: the signature at an offset (`type`, v0.9) */
+  case HoverAt(classpath: Vector[Path], file: Path, text: String, offset: Int) extends Code[Either[String, String]]
+  /** the compiler's errors in a file's text over a classpath */
+  case Problems(classpath: Vector[Path], file: Path, text: String) extends Code[Either[String, Vector[Problem]]]
 
 object Code:
   def root[R[_]](using In[Code, R]): Path ! R = perform[Code](Root())
@@ -61,6 +65,10 @@ object Code:
   def atRevision[R[_]](source: Path, rev: String)(using In[Code, R]): Option[String] ! R =
     perform[Code](AtRevision(source, rev))
   def execute[R[_]](program: Program)(using In[Code, R]): Either[String, String] ! R = perform[Code](Execute(program))
+  def hover[R[_]](cp: Vector[Path], file: Path, text: String, offset: Int)(using In[Code, R])
+      : Either[String, String] ! R = perform[Code](HoverAt(cp, file, text, offset))
+  def problems[R[_]](cp: Vector[Path], file: Path, text: String)(using In[Code, R])
+      : Either[String, Vector[Problem]] ! R = perform[Code](Problems(cp, file, text))
 
   /** the full extent of the definition named at `l` */
   def spanAt[R[_]](ix: Index, l: Loc)(using In[Code, R]): Option[Span] ! R =
@@ -78,7 +86,10 @@ object Code:
   def fixed[R[_], Rest[_], A](root: Path, index: Index, tables: Map[Path, SpanTable] = Map.empty,
                               lines: Map[Path, Vector[String]] = Map.empty, builtAt: Long = 0L,
                               built: Option[Built] = None, revisions: Map[(Path, String), String] = Map.empty,
-                              execute: Program => Either[String, String] = _ => Left("nothing runs here"))(p: A ! R)(
+                              execute: Program => Either[String, String] = _ => Left("nothing runs here"),
+                              hover: (Path, String, Int) => Either[String, String] = (_, _, _) => Left("no compiler"),
+                              problems: (Path, String) => Either[String, Vector[Problem]] = (_, _) => Left("no compiler"))(
+    p: A ! R)(
     using Split[Code, R, Rest]): A ! Rest =
     val g = Generation(1, index, Vector.empty, builtAt, 0L, Vector.empty)
     handle(p, Handler.tail[Code, Rest, A, A](pure)([X] => (op: Code[X]) => op match
@@ -92,7 +103,9 @@ object Code:
       case Warm() => ()
       case Classpath(_) => built
       case AtRevision(s, rev) => revisions.get((s, rev))
-      case Execute(program) => execute(program)))
+      case Execute(program) => execute(program)
+      case HoverAt(_, f, t, o) => hover(f, t, o)
+      case Problems(_, f, t) => problems(f, t)))
 
   /**
    * THE COMPILERS' OUTPUT ON A DISK, kept fresh: before answering, the SemanticDB under `root` is looked at (at most
@@ -103,7 +116,8 @@ object Code:
    */
   def compiled[R[_], Rest[_], A](root: Path, kept: Kept, include: DbFile => Boolean = _ => true,
                                  recheckMillis: Long = 2000)(p: A ! R)(
-    using Split[Code, R, Rest], In[Disk, Rest], In[Tasty, Rest], In[Clock, Rest], In[Exec, Rest]): A ! Rest =
+    using Split[Code, R, Rest], In[Disk, Rest], In[Tasty, Rest], In[Clock, Rest], In[Exec, Rest],
+    In[Typer, Rest]): A ! Rest =
     val c = Compiled[Rest](root.toAbsolutePath.normalize, kept, include, recheckMillis)
     handle(p, Handler.general[Code, Rest, A, A](pure)([X] => (op: Code[X], k: X => A ! Rest) => op match
       case Root() => k(c.base)
@@ -116,7 +130,9 @@ object Code:
       case Warm() => c.warm.flatMap(k)
       case Classpath(r) => c.classpath(r).flatMap(k)
       case AtRevision(s, rev) => c.atRevision(s, rev).flatMap(k)
-      case Execute(program) => c.execute(program).flatMap(k)))
+      case Execute(program) => c.execute(program).flatMap(k)
+      case HoverAt(cp, f, t, o) => Typer.hover[Rest](cp, f, t, o).flatMap(k)
+      case Problems(cp, f, t) => Typer.diagnose[Rest](cp, f, t).flatMap(k)))
 
 /** a SemanticDB root's class directory: its TASTy, kept while that root's SemanticDB is unchanged (`stamp`) */
 final case class Classes(root: Path, dir: Path, stamp: String, saved: Path, read: Option[Tasty.Read] = None,
