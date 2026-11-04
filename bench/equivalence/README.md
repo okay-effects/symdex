@@ -32,7 +32,7 @@ compiled with SemanticDB and indexed (`sbt symdexIndex`, which writes the classp
 gateway), the same question:
 
 > The working tree changes `def <name>` in `<file>` (`git diff -- <file>`). Is the change behaviour-preserving: the
-> same result, or the same exception, for every input? Do not edit files. End with one line: `VERDICT: safe`, or
+> same result, or the same exception, for every input (null is not an input)? Do not edit files. End with one line: `VERDICT: safe`, or
 > `VERDICT: unsafe INPUT: <the arguments, as Scala expressions, comma-separated>`.
 
 | Arm | What |
@@ -77,6 +77,13 @@ gateway), the same question:
 - The two "no verdict" with the tool: Escape — `equivalent` answered "no difference" three times, the model did not
   trust it and wrote its own checks with `bash` until the time ran out; Words — it never called `equivalent`, and
   fought a scala-cli installation instead. Trust and reach, not the tool's answers.
+
+**The first run was spoiled by the bench itself** (found after): when the alone arm's agent committed (case 10),
+`restore` put HEAD back with `reset --soft` — the change stayed STAGED, so from then on `git diff -- <file>` showed
+nothing, for the rest of alone and all of with; agents found it by `git diff --cached` or not (with's Words timeout:
+an empty diff, then a fight with scala-cli). Fixed: the index reset, anything new cleaned. And Codes' truth was wrong
+as asked: `null` does tell them apart (`Try(null.toInt)` is None, `null.toIntOption` throws) — alone was right; the
+question now says null is not an input. Both arms run again.
 
 Next (a harder corpus, Measure 4's spirit): functions of 10–40 lines, breaks that only a combination of edge values
 shows (several parameters at their edges at once, nested Option/Either, maps keyed by case classes); and the prompt

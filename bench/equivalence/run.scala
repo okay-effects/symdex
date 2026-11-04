@@ -67,7 +67,8 @@ def question(c: Case): String =
   val name = c.definition.split('.').last
   s"The working tree changes `def $name` in `src/main/scala/app/${c.file}.scala` (see `git diff -- " +
     s"src/main/scala/app/${c.file}.scala`). Is the change behaviour-preserving: the same result, or the same " +
-    "exception, for every input? Do not edit any file. End your answer with one line: `VERDICT: safe`, or " +
+    "exception, for every input (null is not an input)? Do not edit any file. End your answer with one line: " +
+    "`VERDICT: safe`, or " +
     "`VERDICT: unsafe INPUT: <the arguments, as Scala expressions, comma-separated>`."
 
 val VerdictLine = """(?s).*VERDICT:\s*\**\s*(safe|unsafe)\b(.*)""".r
@@ -96,7 +97,9 @@ def restore(dir: os.Path): Unit =
   val first = os.proc("git", "rev-list", "--max-parents=0", "HEAD").call(cwd = dir).out.trim()
   if os.proc("git", "rev-parse", "HEAD").call(cwd = dir).out.trim() != first then
     println("  (the agent committed: HEAD put back)")
-    os.proc("git", "reset", "-q", "--soft", first).call(cwd = dir)
+  // the index as setup left it (nothing staged: `git diff` shows the change), anything new outside the ignored removed
+  os.proc("git", "reset", "-q", first).call(cwd = dir)
+  os.proc("git", "clean", "-fdq", "-e", ".mcp.json").call(cwd = dir)
   val src = dir / "src" / "main" / "scala" / "app"
   val changed = os.list(here / "after").exists(f => !os.exists(src / f.last) || os.read(src / f.last) != os.read(f)) ||
     os.list(src).exists(f => !os.exists(here / "after" / f.last))
