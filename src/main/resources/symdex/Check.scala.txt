@@ -17,6 +17,8 @@ object Gen:
   given Gen[Long] = of(_ => LazyList(0L, 1L, -1L, 2L, Long.MaxValue, Long.MinValue), (r, s) => r.between(-s * 10L, s * 10L + 1))
   given Gen[BigDecimal] = of(_ => LazyList(BigDecimal(0), BigDecimal(1), BigDecimal(-1), BigDecimal("0.5"), BigDecimal("19.99")),
     (r, s) => BigDecimal(r.between(-s * 1000, s * 1000 + 1)) / (if r.nextBoolean() then 100 else 1000))
+  given Gen[BigInt] = of(_ => LazyList(BigInt(0), BigInt(1), BigInt(-1), BigInt(2), BigInt(Long.MaxValue) + 1),
+    (r, s) => BigInt(r.between(-s * 10, s * 10 + 1)))
   given Gen[Double] = of(_ => LazyList(0.0, 1.0, -1.0, 0.5), (r, s) => r.between(-s * 10.0, s * 10.0))
   given Gen[Boolean] = of(_ => LazyList(false, true), (r, _) => r.nextBoolean())
   given Gen[Char] = of(_ => LazyList('a', 'b', ' ', '0'), (r, _) => ('a' + r.nextInt(26)).toChar)
