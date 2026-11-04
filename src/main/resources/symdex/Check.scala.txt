@@ -1,7 +1,7 @@
 package okay.symdex.check
 
 import scala.deriving.Mirror
-import scala.compiletime.{erasedValue, summonInline}
+import scala.compiletime.{erasedValue, summonFrom, summonInline}
 import scala.util.Random
 
 /** generators by type: every value up to a small size (exhaustive), and random ones */
@@ -59,15 +59,27 @@ object Gen:
 
   // case classes: every combination of their fields' small values (diagonally), random fields
   inline given derived[A](using m: Mirror.ProductOf[A]): Gen[A] =
-    val fields = gens[m.MirroredElemTypes]
-    of(s => diagonal(fields.map(_.small(s - 1).take(4).toVector))
+    lazy val fields = gens[m.MirroredElemTypes] // lazily: a recursive type's given is built before it is used
+    // nothing below size 0: a recursive type's small values end at its base cases
+    of(s => if s < 0 then LazyList.empty else diagonal(fields.map(_.small(s - 1).take(4).toVector))
       .map(xs => m.fromProduct(Tuple.fromArray(xs.toArray.map(_.asInstanceOf[Object])))),
-      (r, s) => m.fromProduct(Tuple.fromArray(fields.map(_.random(r, s).asInstanceOf[Object]).toArray)))
+      // fields a size smaller: a recursive type's random values end
+      (r, s) => m.fromProduct(Tuple.fromArray(fields.map(_.random(r, s - 1).asInstanceOf[Object]).toArray)))
   // enums and sealed traits: each case's small values in turn (round robin, so every case comes early), a random case
   inline given derivedSum[A](using m: Mirror.SumOf[A]): Gen[A] =
-    val cases = gens[m.MirroredElemTypes]
-    of(s => roundRobin(cases.map(_.small(s).take(4))).map(_.asInstanceOf[A]),
-      (r, s) => cases(r.nextInt(cases.size)).random(r, s).asInstanceOf[A])
+    lazy val cases = gens[m.MirroredElemTypes]
+    of(s => if s < 0 then LazyList.empty else roundRobin(cases.map(_.small(s).take(4))).map(_.asInstanceOf[A]),
+      (r, s) =>
+        // out of size: one of the smallest values (a recursive type's base cases), else any case
+        val base = if s > 0 then Nil else cases.flatMap(_.small(0).headOption)
+        (if base.nonEmpty then base(r.nextInt(base.size)) else cases(r.nextInt(cases.size)).random(r, s))
+          .asInstanceOf[A])
+  /** a type's generator derived, product or sum — for a given the harness declares, so that a recursive type's
+   * derivation finds that given (itself) instead of deriving again without end */
+  inline def auto[A]: Gen[A] = summonFrom {
+    case m: Mirror.ProductOf[A] => derived[A](using m)
+    case m: Mirror.SumOf[A] => derivedSum[A](using m)
+  }
   def roundRobin(xs: List[LazyList[Any]]): LazyList[Any] =
     val live = xs.filter(_.nonEmpty)
     if live.isEmpty then LazyList.empty else LazyList.from(live.map(_.head)) #::: roundRobin(live.map(_.tail))
