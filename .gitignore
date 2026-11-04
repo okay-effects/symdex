@@ -8,3 +8,4 @@ project/project/
 # written by symdexMcp / symdexHook with this machine's paths
 .mcp.json
 .claude/settings.local.json
+.scala-build/
