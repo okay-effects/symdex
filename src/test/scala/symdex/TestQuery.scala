@@ -63,6 +63,12 @@ class TestQuery extends munit.FunSuite:
     val out = ask("callers(@Use.total, Y)", "format" -> Json.Str("json"), "budget" -> Json.num(40))
     val j = okay.effects.json.Descent.parse(out).toOption.get
     assertEquals(j.field("count"), Some(Json.num(2)))
+    assertEquals(j.field("shown"), Some(Json.num(2)))
+    assertEquals(j.field("limit"), None)
+    val cut = okay.effects.json.Descent.parse(ask("callers(@Use.total, Y)", "format" -> Json.Str("json"),
+      "limit" -> Json.num(1))).toOption.get
+    assertEquals((cut.field("count"), cut.field("shown"), cut.field("limit")),
+      (Some(Json.num(2)), Some(Json.num(1)), Some(Json.num(1))))
     assert(out.contains("\"Y\":\"fixture/Use.report().\"") || out.contains("\"Y\": \"fixture/Use.report().\""), out)
     val bad = ask("callers(X Y)", "format" -> Json.Str("json"))
     assert(okay.effects.json.Descent.parse(bad).toOption.flatMap(_.field("error")).nonEmpty, bad)

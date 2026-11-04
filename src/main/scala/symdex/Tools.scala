@@ -552,13 +552,16 @@ object Tools:
       }
     }
 
-  /** the answers as JSON: `{"goal", "count", "answers": [{"X": "…"}, …]}` (the first `limit`) */
+  /** the answers as JSON: `{"goal", "count", "shown", "answers": [{"X": "…"}, …]}` — the first `limit`; when
+   * fewer are shown than there are, `"limit"` says so (a program reading `answers` alone took 100 for all) */
   private def asJson(goal: okay.datalog.Atom, asked: okay.datalog.Atom, result: okay.datalog.Result,
                      limit: Int): String =
     val all = result.query(asked)
-    Json.print(Json.obj("goal" -> Json.Str(goal.toString), "count" -> Json.num(all.size),
-      "answers" -> Json.Arr(all.take(limit).map(b => Json.Obj(b.toVector.sortBy(_._1).map((k, v) => k -> Json.Str(v))))
-        .toVector)))
+    val shown = all.take(limit)
+    val cut = if all.size > limit then Vector("limit" -> Json.num(limit)) else Vector.empty
+    Json.print(Json.Obj(Vector("goal" -> Json.Str(goal.toString), "count" -> Json.num(all.size),
+      "shown" -> Json.num(shown.size)) ++ cut :+ ("answers" -> Json.Arr(shown.map(b =>
+        Json.Obj(b.toVector.sortBy(_._1).map((k, v) => k -> Json.Str(v)))).toVector))))
 
   private def render(ix: Index, goal: okay.datalog.Atom, asked: okay.datalog.Atom, result: okay.datalog.Result,
                      named: Vector[(String, Int)], seeded: Int, limit: Int, why: Boolean): String =
