@@ -52,3 +52,32 @@ gateway), the same question:
 - time per case, turns.
 
 `history.tsv` keeps every run, appended to.
+
+## Results
+
+2026-11-04, Qwen3.6-35B-A3B-4bit on okay-agent 0.1.0 (okay-mlx gateway), one run per case, 900 s at most:
+
+| arm | right | false safe | false unsafe | no verdict | counterexamples valid | median |
+|---|---|---|---|---|---|---|
+| tool, before the fixes | 39 / 43 | 2 / 24 | 0 / 19 | 2 | 21 / 21 | 2 s |
+| tool, after (bd5c8b6) | 43 / 43 | 0 | 0 | 0 | 24 / 24 | 2 s |
+| alone | 41 / 43 | 0 | 2 | 0 | 20 / 26 | 72 s |
+| with | 41 / 43 | 0 | 0 | 2 | 20 / 23 | 79 s |
+
+- The tool arm found symdex's own defects first: a braces body cut at its closing `}` (no answer on two cases);
+  strings over `a`–`c` only and BigDecimals of two places (two false "safe": `@` and `0.005`). Fixed; the corpus
+  drove the generators' widening, so the 43 / 43 is partly fitted to it — the alphabet is general (the separators
+  code splits and escapes by), not the cases' inputs.
+- **No false "safe" in any arm**: on functions of one line, the model with `bash` checks by hand and is careful. The
+  corpus is too easy to show the tool's main value; the difference is in the false "unsafe": alone it claimed two
+  safe changes broken (Escape: `"\\\""`, which run gives the same; Codes: `null`) — with the tool, none.
+- Counterexamples: of alone's six not confirmed, three listed several inputs (the format, not the logic), one did not
+  parse, one was wrong (`List("b", "a", "b")` for `Set` vs `List` order: a Set of three keeps the order), one was on
+  a safe case; with the tool all three not confirmed listed several inputs — every single one given ran true.
+- The two "no verdict" with the tool: Escape — `equivalent` answered "no difference" three times, the model did not
+  trust it and wrote its own checks with `bash` until the time ran out; Words — it never called `equivalent`, and
+  fought a scala-cli installation instead. Trust and reach, not the tool's answers.
+
+Next (a harder corpus, Measure 4's spirit): functions of 10–40 lines, breaks that only a combination of edge values
+shows (several parameters at their edges at once, nested Option/Either, maps keyed by case classes); and the prompt
+saying what `equivalent`'s "no difference" covers, so the model stops re-checking it by hand.

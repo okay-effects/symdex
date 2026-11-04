@@ -537,6 +537,9 @@ against HEAD): a safe fold — no difference on 85 small and 1000 random inputs;
 0)`: now None, HEAD Some(""); the first line for the sum — `Some(List(Line("", 0, 0), Line("", 1, 0)))`: now 0, HEAD 1.
 Each answer ~2 s (scala-cli compiles the harness).
 4. The equivalence benchmark (mutations of real code) and the demo on okay-agent — `bench/equivalence/README.md`.
+   Done 2026-11-04 (first run): 43 cases; the tool 43 / 43 after two fixes it found; Qwen alone 41 / 43 (0 false safe, 2
+   false unsafe), with `equivalent` 41 / 43 (0 false safe, 0 false unsafe, 2 timeouts) — too easy a corpus to show the
+   false-safe gap; a harder one next.
 5. `type` (presentation compiler) and its benchmark; then effects.
 
 ## Where the general parts go
