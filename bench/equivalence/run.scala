@@ -69,7 +69,7 @@ def question(c: Case): String =
     s"src/main/scala/app/${c.file}.scala`). Is the change behaviour-preserving: the same result, or the same " +
     "exception, for every input (null is not an input)? Do not edit any file. End your answer with one line: " +
     "`VERDICT: safe`, or " +
-    "`VERDICT: unsafe INPUT: <the arguments, as Scala expressions, comma-separated>`."
+    "`VERDICT: unsafe INPUT: <ONE input: its arguments, as Scala expressions, comma-separated>`."
 
 val VerdictLine = """(?s).*VERDICT:\s*\**\s*(safe|unsafe)\b(.*)""".r
 val InputPart = """(?s).*?INPUT:\s*`?([^`\n]*)`?.*""".r
@@ -114,6 +114,11 @@ def restore(dir: os.Path): Unit =
   val dir = os.Path(args.sliding(2).collectFirst { case Seq("--dir", d) => d }.getOrElse("/tmp/eqbench"), os.pwd)
   val only = args.drop(1).filterNot(_.startsWith("--")).filterNot(_ == dir.toString).headOption.map(ids)
   val chosen = cases.filter(c => only.forall(_(c.id)))
+  val stamp = java.time.LocalDateTime.now.withNano(0).toString
+  val history = here / "history.tsv"
+  if !os.exists(history) then
+    os.write(history, "when\tarm\tmodel\tid\ttruth\tverdict\tinput\tcounterexample\tseconds\tnote\n")
+  // each case judged and written as it ends: a run stopped halfway keeps what it did
   val results = chosen.map { c =>
     val v = arm match
       case "tool" => tool(dir, c)
@@ -123,31 +128,51 @@ def restore(dir: os.Path): Unit =
     val shown = v.safe.fold("none")(if _ then "safe" else s"unsafe ${v.input}")
     val mark = if v.safe.contains(c.truth == "safe") then "ok" else "WRONG"
     println(f"${c.id}%2d ${c.definition}%-22s truth ${c.truth}%-6s → $shown%-40s $mark%5s ${v.seconds}%.0f s ${v.note}")
-    c -> v
-  }
-  // counterexamples run: each unsafe verdict's input on both versions
-  val asked = results.collect { case (c, v) if v.safe.contains(false) && v.input.nonEmpty => c.id -> unwrap(v.input, arity(c)) }
-  val answers = os.temp(asked.map((id, in) => s"$id\t$in").mkString("\n"))
-  val judged: Map[Int, String] =
-    if asked.isEmpty then Map.empty
-    else os.proc("scala-cli", "run", "--server=false", here / "verify.scala", "--", "--answers", answers)
-      .call(cwd = here, stderr = os.Pipe).out.lines().map(_.split("\t", -1)).map(p => p(0).toInt -> p(1)).toMap
-  val stamp = java.time.LocalDateTime.now.withNano(0).toString
-  val history = here / "history.tsv"
-  if !os.exists(history) then
-    os.write(history, "when\tarm\tmodel\tid\ttruth\tverdict\tinput\tcounterexample\tseconds\tnote\n")
-  for (c, v) <- results do
+    val judged = if v.safe.contains(false) && v.input.nonEmpty then judge(c.id, first(unwrap(v.input, arity(c)), arity(c))) else "-"
     os.write.append(history, Seq(stamp, arm, if arm == "tool" then "-" else model, c.id, c.truth,
-      v.safe.fold("none")(if _ then "safe" else "unsafe"), v.input, judged.getOrElse(c.id, "-"),
-      f"${v.seconds}%.1f", v.note).mkString("\t") + "\n")
+      v.safe.fold("none")(if _ then "safe" else "unsafe"), v.input, judged, f"${v.seconds}%.1f", v.note)
+      .mkString("\t") + "\n")
+    (c, v, judged)
+  }
   val unsafe = results.filter(_._1.truth == "unsafe")
   val safe = results.filter(_._1.truth == "safe")
-  val right = results.count((c, v) => v.safe.contains(c.truth == "safe"))
+  val right = results.count((c, v, _) => v.safe.contains(c.truth == "safe"))
   val falseSafe = unsafe.count(_._2.safe.contains(true))
   val falseUnsafe = safe.count(_._2.safe.contains(false))
-  val valid = judged.values.count(_ == "differ")
+  val valid = results.count(_._3 == "differ")
   val unsafeSaid = results.count(_._2.safe.contains(false))
   println(s"\n$arm: right ${right} of ${results.size}; false safe $falseSafe of ${unsafe.size} unsafe; " +
     s"false unsafe $falseUnsafe of ${safe.size} safe; no verdict ${results.count(_._2.safe.isEmpty)}; " +
     s"counterexamples valid $valid of $unsafeSaid unsafe verdicts; " +
     f"median ${results.map(_._2.seconds).sorted.apply(results.size / 2)}%.0f s")
+
+/** one counterexample run on both versions (verify.scala): differ, same, or invalid */
+def judge(id: Int, input: String): String =
+  val answers = os.temp(s"$id\t$input")
+  os.proc("scala-cli", "run", "--server=false", here / "verify.scala", "--", "--answers", answers)
+    .call(cwd = here, stderr = os.Pipe, check = false).out.lines().map(_.split("\t", -1))
+    .collectFirst { case p if p.length > 1 => p(1) }.getOrElse("invalid")
+
+/** the first of several inputs an answer lists (`(a, b), (c, d)`, or `x; y`): a counterexample is one input */
+def first(in: String, arity: Int): String =
+  val t = in.trim
+  // one parameter: its first top-level comma ends the first input (`Some(""), Some("a")`)
+  def topComma(s: String) =
+    var depth = 0
+    s.indices.find { i =>
+      s(i) match
+        case '(' | '[' | '{' => depth += 1
+        case ')' | ']' | '}' => depth -= 1
+        case _ => ()
+      depth == 0 && s(i) == ','
+    }
+  if arity == 1 && !t.startsWith("\"") then return topComma(t).fold(t)(i => t.take(i).trim)
+  if t.startsWith("(") then
+    var depth = 0
+    val close = t.indices.find { i =>
+      if t(i) == '(' then depth += 1 else if t(i) == ')' then depth -= 1
+      depth == 0
+    }
+    close.filter(_ < t.length - 1).filter(i => t.drop(i + 1).trim.startsWith(","))
+      .fold(t)(i => t.substring(1, i))
+  else t.split(";").head.trim
