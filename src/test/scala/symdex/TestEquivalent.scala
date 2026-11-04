@@ -60,6 +60,10 @@ class TestEquivalent extends munit.FunSuite:
     val j = ask("Refactor.totalFold", "against" -> Json.Str("Refactor.total"), "format" -> Json.Str("json"))
     assert(okay.effects.json.Descent.parse(j).toOption.flatMap(_.field("equivalent")).contains(Json.Bool(true)), j)
 
+  test("code given for a name: refused, saying a name is wanted and nothing was checked"):
+    val out = ask("def clamp(x: Int): Int = x")
+    assert(out.contains("take a definition's NAME") && out.contains("NOT checked"), out)
+
   test("the old definition found in a file's text, its header, the harness"):
     val text = "package a\nimport b.c\nobject O:\n  def f(x: Int): Int =\n    x + 1\n\n  def g = 2\n"
     assertEquals(Equivalence.definitionIn(text, "O", "f"), Right("  def f(x: Int): Int =\n    x + 1"))

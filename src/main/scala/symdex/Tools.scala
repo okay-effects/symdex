@@ -602,8 +602,14 @@ object Tools:
     generation[R].flatMap { (g, head) =>
       val ix = g.index
       def refuse(why: String) = pure[String, R](answer(head, why, Json.obj("error" -> Json.Str(why))))
+      // a definition's text given for its name (an agent did, then read the refusal as "no difference")
+      val looksLikeCode = (s: String) => s.contains(" ") || s.contains("(") || s.contains("=")
+      def named(why: String, asked: String) =
+        if !looksLikeCode(asked) then why
+        else s"$why — `query` and `against` take a definition's NAME (`Bounds.clamp`), or `against` a git " +
+          "revision (HEAD by default), not code: the old version is read from git. NOT checked: no verdict."
       symbolsOf(ix, q) match
-        case Left(why) => refuse(why)
+        case Left(why) => refuse(named(why, q))
         case Right(ss) if ss.size > 1 && !oneName(ss) => pure(s"$head\n${candidates(ix, ss)}")
         case Right(ss) =>
           val placed = for
@@ -618,7 +624,7 @@ object Tools:
               val other: Option[Either[String, Equivalence.Target]] =
                 Option.when(against.exists(c => c == '.' || c == '#'))(ix.resolve(against) match
                   case Vector(o) => Equivalence.target(ix, o)
-                  case Vector() => Left(s"nothing named '$against' in the index")
+                  case Vector() => Left(named(s"nothing named '$against' in the index", against))
                   case os => Left(s"'$against' means ${os.size} symbols; name one: ${os.take(5).mkString(", ")}"))
               Code.spanAt[R](ix, l).flatMap { span =>
                 // not a function of its parameters: a reference inside it to something that reads or writes the world
@@ -753,9 +759,10 @@ object Tools:
         ("format", "string", "json: the answers as data, for a program"), budget)("goal"), Fit.Compressed)(
       new Run { def apply[R[_]: Has[Code] : Has[Archive] : Has[Clock]](a: Json) = query[R](a) }),
     tool("equivalent",
-      "Does a definition still behave as it did? It runs the definition now and at a git revision (`against`, HEAD " +
-        "by default) — or another definition — on every input up to a small size and on random ones, inputs from " +
-        "the parameters' types: a counterexample proves a difference. Use before calling a refactoring safe.",
+      "Does a definition still behave as it did? Give its NAME (`Orders.total`), not its code. It runs it now " +
+        "and at a git revision (`against`, HEAD by default) — or another definition — on every input up to a " +
+        "small size and on random ones, inputs from the parameters' types: a counterexample proves a difference. Use " +
+        "before calling a refactoring safe.",
       schema(query, ("against", "string", "a git revision (default HEAD), or another definition's name"),
         ("size", "integer", "every input up to this size (default 4)"),
         ("trials", "integer", "random inputs (default 1000)"),

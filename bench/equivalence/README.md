@@ -88,3 +88,21 @@ question now says null is not an input. Both arms run again.
 Next (a harder corpus, Measure 4's spirit): functions of 10–40 lines, breaks that only a combination of edge values
 shows (several parameters at their edges at once, nested Option/Either, maps keyed by case classes); and the prompt
 saying what `equivalent`'s "no difference" covers, so the model stops re-checking it by hand.
+
+## Results, the second run (the bench fixed: the index reset, null not an input)
+
+2026-11-04, the same model and agent; `with` run in two parts (cases 1–13, then 14–43, the first stopped at its
+two-hour limit — the GPU shared with other work):
+
+| arm | right | false safe | false unsafe | no verdict | median |
+|---|---|---|---|---|---|
+| tool | 43 / 43 | 0 | 0 | 0 | 2 s |
+| alone | 42 / 43 | 1 (Grades: `110 / 10 = 11` matches no case) | 0 | 0 | 67 s |
+| with | 42 / 43 | 1 (Bounds.clamp) | 0 | 0 | 88 s |
+
+- With the bench fixed, the agent alone is as good as with the tool on this corpus: one-line functions, `bash` at
+  hand, it checks by hand. The tool's value is not shown by an easy corpus — a harder one is the next measure.
+- **The miss with the tool was the tool's ergonomics**: the agent called `equivalent` with CODE in `query`
+  (`def clamp_old(x: Int, …) = …`), got "nothing named …", and answered "safe". Fixed (symdex, this commit): the
+  description begins "Give its NAME (`Orders.total`), not its code", and code given for a name is refused saying a
+  name is wanted and that NOTHING was checked — no verdict.

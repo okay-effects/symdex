@@ -172,3 +172,76 @@ when	arm	model	id	truth	verdict	input	counterexample	seconds	note
 2026-11-04T03:06:54	with	mlx-community/Qwen3.6-35B-A3B-4bit	41	safe	safe		-	105.3	/Users/sergiy/.okay-agent/journals/eqbench-1793757693145.jsonl
 2026-11-04T03:06:54	with	mlx-community/Qwen3.6-35B-A3B-4bit	42	safe	safe		-	94.3	/Users/sergiy/.okay-agent/journals/eqbench-1793757798614.jsonl
 2026-11-04T03:06:54	with	mlx-community/Qwen3.6-35B-A3B-4bit	43	unsafe	unsafe	0, 0	differ	72.6	/Users/sergiy/.okay-agent/journals/eqbench-1793757892919.jsonl
+2026-11-04T08:23:23	alone	mlx-community/Qwen3.6-35B-A3B-4bit	1	safe	safe		-	102.9	/Users/sergiy/.okay-agent/journals/eqbench-1793772444063.jsonl
+2026-11-04T08:23:23	alone	mlx-community/Qwen3.6-35B-A3B-4bit	2	unsafe	unsafe	"\""	differ	69.3	/Users/sergiy/.okay-agent/journals/eqbench-1793772547082.jsonl
+2026-11-04T08:23:23	alone	mlx-community/Qwen3.6-35B-A3B-4bit	3	unsafe	unsafe	"src/", "src/main/other.scala"	same	57.8	/Users/sergiy/.okay-agent/journals/eqbench-1793772616507.jsonl
+2026-11-04T08:23:23	alone	mlx-community/Qwen3.6-35B-A3B-4bit	4	safe	safe		-	42.7	/Users/sergiy/.okay-agent/journals/eqbench-1793772674423.jsonl
+2026-11-04T08:23:23	alone	mlx-community/Qwen3.6-35B-A3B-4bit	5	safe	safe		-	43.0	/Users/sergiy/.okay-agent/journals/eqbench-1793772717319.jsonl
+2026-11-04T08:23:23	alone	mlx-community/Qwen3.6-35B-A3B-4bit	6	unsafe	unsafe	List("", "host")	differ	50.2	/Users/sergiy/.okay-agent/journals/eqbench-1793772760341.jsonl
+2026-11-04T08:23:23	alone	mlx-community/Qwen3.6-35B-A3B-4bit	7	unsafe	unsafe	Some("a,")	same	32.1	/Users/sergiy/.okay-agent/journals/eqbench-1793772810702.jsonl
+2026-11-04T08:23:23	alone	mlx-community/Qwen3.6-35B-A3B-4bit	8	unsafe	unsafe	Some("a"), None	differ	33.8	/Users/sergiy/.okay-agent/journals/eqbench-1793772842874.jsonl
+2026-11-04T08:23:23	alone	mlx-community/Qwen3.6-35B-A3B-4bit	9	safe	safe		-	83.5	/Users/sergiy/.okay-agent/journals/eqbench-1793772876810.jsonl
+2026-11-04T08:23:23	alone	mlx-community/Qwen3.6-35B-A3B-4bit	10	unsafe	unsafe	List("", "a")**	invalid	83.7	/Users/sergiy/.okay-agent/journals/eqbench-1793772960330.jsonl
+2026-11-04T08:23:23	alone	mlx-community/Qwen3.6-35B-A3B-4bit	11	safe	safe		-	342.3	/Users/sergiy/.okay-agent/journals/eqbench-1793773044115.jsonl
+2026-11-04T08:23:23	alone	mlx-community/Qwen3.6-35B-A3B-4bit	12	unsafe	unsafe	List("T1TrUL", "z7mYu", "cmLCmn85", "3wQAhHR80", "LNoOoYNr9", "EU9FWGdG", "EU9FWGdG")	differ	216.1	/Users/sergiy/.okay-agent/journals/eqbench-1793773386513.jsonl
+2026-11-04T08:23:23	alone	mlx-community/Qwen3.6-35B-A3B-4bit	13	safe	safe		-	37.5	/Users/sergiy/.okay-agent/journals/eqbench-1793773602664.jsonl
+2026-11-04T08:23:23	alone	mlx-community/Qwen3.6-35B-A3B-4bit	14	safe	safe		-	30.4	/Users/sergiy/.okay-agent/journals/eqbench-1793773640161.jsonl
+2026-11-04T08:23:23	alone	mlx-community/Qwen3.6-35B-A3B-4bit	15	unsafe	unsafe	List.empty[Int]	differ	73.0	/Users/sergiy/.okay-agent/journals/eqbench-1793773670714.jsonl
+2026-11-04T08:23:23	alone	mlx-community/Qwen3.6-35B-A3B-4bit	16	unsafe	unsafe	2147483642, 2147483644	differ	96.0	/Users/sergiy/.okay-agent/journals/eqbench-1793773743678.jsonl
+2026-11-04T08:23:23	alone	mlx-community/Qwen3.6-35B-A3B-4bit	17	unsafe	unsafe	7, 10, 5	differ	70.8	/Users/sergiy/.okay-agent/journals/eqbench-1793773839770.jsonl
+2026-11-04T08:23:23	alone	mlx-community/Qwen3.6-35B-A3B-4bit	18	unsafe	unsafe	BigDecimal("1.005")	differ	55.9	/Users/sergiy/.okay-agent/journals/eqbench-1793773910652.jsonl
+2026-11-04T08:23:23	alone	mlx-community/Qwen3.6-35B-A3B-4bit	19	safe	safe		-	95.3	/Users/sergiy/.okay-agent/journals/eqbench-1793773966620.jsonl
+2026-11-04T08:23:23	alone	mlx-community/Qwen3.6-35B-A3B-4bit	20	unsafe	unsafe	(Map("a" -> "1"), Map("a" -> "2"))	differ	57.1	/Users/sergiy/.okay-agent/journals/eqbench-1793774062019.jsonl
+2026-11-04T08:23:23	alone	mlx-community/Qwen3.6-35B-A3B-4bit	21	unsafe	unsafe	"", "   "	invalid	55.8	/Users/sergiy/.okay-agent/journals/eqbench-1793774119135.jsonl
+2026-11-04T08:23:23	alone	mlx-community/Qwen3.6-35B-A3B-4bit	22	unsafe	unsafe	-1, ""	differ	30.4	/Users/sergiy/.okay-agent/journals/eqbench-1793774174990.jsonl
+2026-11-04T08:23:23	alone	mlx-community/Qwen3.6-35B-A3B-4bit	23	safe	safe		-	53.1	/Users/sergiy/.okay-agent/journals/eqbench-1793774205466.jsonl
+2026-11-04T08:23:23	alone	mlx-community/Qwen3.6-35B-A3B-4bit	24	safe	safe		-	25.4	/Users/sergiy/.okay-agent/journals/eqbench-1793774258637.jsonl
+2026-11-04T08:23:23	alone	mlx-community/Qwen3.6-35B-A3B-4bit	25	unsafe	unsafe	true, false	differ	30.8	/Users/sergiy/.okay-agent/journals/eqbench-1793774284124.jsonl
+2026-11-04T08:23:23	alone	mlx-community/Qwen3.6-35B-A3B-4bit	26	unsafe	unsafe	"", "  ", "a  b"**	invalid	45.1	/Users/sergiy/.okay-agent/journals/eqbench-1793774315007.jsonl
+2026-11-04T08:23:23	alone	mlx-community/Qwen3.6-35B-A3B-4bit	27	unsafe	unsafe	(List(1), Nil)	same	48.0	/Users/sergiy/.okay-agent/journals/eqbench-1793774360126.jsonl
+2026-11-04T08:23:23	alone	mlx-community/Qwen3.6-35B-A3B-4bit	28	unsafe	unsafe	List()	differ	67.4	/Users/sergiy/.okay-agent/journals/eqbench-1793774408188.jsonl
+2026-11-04T08:23:23	alone	mlx-community/Qwen3.6-35B-A3B-4bit	29	safe	safe		-	58.5	/Users/sergiy/.okay-agent/journals/eqbench-1793774475757.jsonl
+2026-11-04T08:23:23	alone	mlx-community/Qwen3.6-35B-A3B-4bit	30	unsafe	unsafe	List(("a", 1), ("a", 2))	differ	57.5	/Users/sergiy/.okay-agent/journals/eqbench-1793774534237.jsonl
+2026-11-04T08:23:23	alone	mlx-community/Qwen3.6-35B-A3B-4bit	31	safe	safe		-	34.2	/Users/sergiy/.okay-agent/journals/eqbench-1793774591809.jsonl
+2026-11-04T08:23:23	alone	mlx-community/Qwen3.6-35B-A3B-4bit	32	safe	safe		-	133.4	/Users/sergiy/.okay-agent/journals/eqbench-1793774626067.jsonl
+2026-11-04T08:23:23	alone	mlx-community/Qwen3.6-35B-A3B-4bit	33	unsafe	safe		-	72.1	/Users/sergiy/.okay-agent/journals/eqbench-1793774759487.jsonl
+2026-11-04T08:23:23	alone	mlx-community/Qwen3.6-35B-A3B-4bit	34	safe	safe		-	262.9	/Users/sergiy/.okay-agent/journals/eqbench-1793774831648.jsonl
+2026-11-04T08:23:23	alone	mlx-community/Qwen3.6-35B-A3B-4bit	35	unsafe	unsafe	List(1, 2, 3), 0	differ	886.8	/Users/sergiy/.okay-agent/journals/eqbench-1793775094899.jsonl
+2026-11-04T08:23:23	alone	mlx-community/Qwen3.6-35B-A3B-4bit	36	safe	safe		-	42.3	/Users/sergiy/.okay-agent/journals/eqbench-1793775981569.jsonl
+2026-11-04T08:23:23	alone	mlx-community/Qwen3.6-35B-A3B-4bit	37	unsafe	unsafe	(List(Task("a", 1)), List(Task("b", 1)))	differ	91.3	/Users/sergiy/.okay-agent/journals/eqbench-1793776023918.jsonl
+2026-11-04T08:23:23	alone	mlx-community/Qwen3.6-35B-A3B-4bit	38	unsafe	unsafe	"user@ser@example.com"	differ	130.6	/Users/sergiy/.okay-agent/journals/eqbench-1793776115404.jsonl
+2026-11-04T08:23:23	alone	mlx-community/Qwen3.6-35B-A3B-4bit	39	safe	safe		-	88.1	/Users/sergiy/.okay-agent/journals/eqbench-1793776245948.jsonl
+2026-11-04T08:23:23	alone	mlx-community/Qwen3.6-35B-A3B-4bit	40	safe	safe		-	72.9	/Users/sergiy/.okay-agent/journals/eqbench-1793776334152.jsonl
+2026-11-04T08:23:23	alone	mlx-community/Qwen3.6-35B-A3B-4bit	41	safe	safe		-	103.8	/Users/sergiy/.okay-agent/journals/eqbench-1793776407134.jsonl
+2026-11-04T08:23:23	alone	mlx-community/Qwen3.6-35B-A3B-4bit	42	safe	safe		-	214.6	/Users/sergiy/.okay-agent/journals/eqbench-1793776511018.jsonl
+2026-11-04T08:23:23	alone	mlx-community/Qwen3.6-35B-A3B-4bit	43	unsafe	unsafe	Int.MaxValue, 3	differ	217.2	/Users/sergiy/.okay-agent/journals/eqbench-1793776725627.jsonl
+2026-11-04T10:17:37	with	mlx-community/Qwen3.6-35B-A3B-4bit	14	safe	safe		-	266.6	/Users/sergiy/.okay-agent/journals/eqbench-1793779660550.jsonl
+2026-11-04T10:17:37	with	mlx-community/Qwen3.6-35B-A3B-4bit	15	unsafe	unsafe	List()	differ	314.8	/Users/sergiy/.okay-agent/journals/eqbench-1793779927245.jsonl
+2026-11-04T10:17:37	with	mlx-community/Qwen3.6-35B-A3B-4bit	16	unsafe	unsafe	1, 0	differ	222.9	/Users/sergiy/.okay-agent/journals/eqbench-1793780242134.jsonl
+2026-11-04T10:17:37	with	mlx-community/Qwen3.6-35B-A3B-4bit	17	unsafe	safe		-	161.1	/Users/sergiy/.okay-agent/journals/eqbench-1793780465181.jsonl
+2026-11-04T10:17:37	with	mlx-community/Qwen3.6-35B-A3B-4bit	18	unsafe	unsafe	5.428	differ	69.5	/Users/sergiy/.okay-agent/journals/eqbench-1793780626298.jsonl
+2026-11-04T10:17:37	with	mlx-community/Qwen3.6-35B-A3B-4bit	19	safe	safe		-	156.8	/Users/sergiy/.okay-agent/journals/eqbench-1793780695829.jsonl
+2026-11-04T10:17:37	with	mlx-community/Qwen3.6-35B-A3B-4bit	20	unsafe	unsafe	(Map("key" -> "value1"), Map("key" -> "value2"))	differ	63.4	/Users/sergiy/.okay-agent/journals/eqbench-1793780852754.jsonl
+2026-11-04T10:17:37	with	mlx-community/Qwen3.6-35B-A3B-4bit	21	unsafe	unsafe	"", "   "	invalid	61.5	/Users/sergiy/.okay-agent/journals/eqbench-1793780916311.jsonl
+2026-11-04T10:17:37	with	mlx-community/Qwen3.6-35B-A3B-4bit	22	unsafe	unsafe	-1, ""	differ	47.8	/Users/sergiy/.okay-agent/journals/eqbench-1793780977863.jsonl
+2026-11-04T10:17:37	with	mlx-community/Qwen3.6-35B-A3B-4bit	23	safe	safe		-	34.8	/Users/sergiy/.okay-agent/journals/eqbench-1793781025669.jsonl
+2026-11-04T10:17:37	with	mlx-community/Qwen3.6-35B-A3B-4bit	24	safe	safe		-	42.8	/Users/sergiy/.okay-agent/journals/eqbench-1793781060575.jsonl
+2026-11-04T10:17:37	with	mlx-community/Qwen3.6-35B-A3B-4bit	25	unsafe	unsafe	false, true	differ	43.4	/Users/sergiy/.okay-agent/journals/eqbench-1793781103523.jsonl
+2026-11-04T10:17:37	with	mlx-community/Qwen3.6-35B-A3B-4bit	26	unsafe	unsafe	"", "a  b"	invalid	26.6	/Users/sergiy/.okay-agent/journals/eqbench-1793781146978.jsonl
+2026-11-04T10:17:37	with	mlx-community/Qwen3.6-35B-A3B-4bit	27	unsafe	unsafe	List(2, 0), List(2)	differ	202.8	/Users/sergiy/.okay-agent/journals/eqbench-1793781173652.jsonl
+2026-11-04T10:17:37	with	mlx-community/Qwen3.6-35B-A3B-4bit	28	unsafe	unsafe	List.empty[Int]	differ	88.0	/Users/sergiy/.okay-agent/journals/eqbench-1793781376474.jsonl
+2026-11-04T10:17:37	with	mlx-community/Qwen3.6-35B-A3B-4bit	29	safe	safe		-	57.0	/Users/sergiy/.okay-agent/journals/eqbench-1793781464578.jsonl
+2026-11-04T10:17:37	with	mlx-community/Qwen3.6-35B-A3B-4bit	30	unsafe	unsafe	List(("", 0), ("", 1))	differ	30.1	/Users/sergiy/.okay-agent/journals/eqbench-1793781521646.jsonl
+2026-11-04T10:17:37	with	mlx-community/Qwen3.6-35B-A3B-4bit	31	safe	safe		-	77.4	/Users/sergiy/.okay-agent/journals/eqbench-1793781551873.jsonl
+2026-11-04T10:17:37	with	mlx-community/Qwen3.6-35B-A3B-4bit	32	safe	safe		-	47.0	/Users/sergiy/.okay-agent/journals/eqbench-1793781629301.jsonl
+2026-11-04T10:17:37	with	mlx-community/Qwen3.6-35B-A3B-4bit	33	unsafe	unsafe	110	differ	58.0	/Users/sergiy/.okay-agent/journals/eqbench-1793781676325.jsonl
+2026-11-04T10:17:37	with	mlx-community/Qwen3.6-35B-A3B-4bit	34	safe	safe		-	95.7	/Users/sergiy/.okay-agent/journals/eqbench-1793781734459.jsonl
+2026-11-04T10:17:37	with	mlx-community/Qwen3.6-35B-A3B-4bit	35	unsafe	unsafe	List(1, 2, 3), -1	differ	54.9	/Users/sergiy/.okay-agent/journals/eqbench-1793781830187.jsonl
+2026-11-04T10:17:37	with	mlx-community/Qwen3.6-35B-A3B-4bit	36	safe	safe		-	87.8	/Users/sergiy/.okay-agent/journals/eqbench-1793781885144.jsonl
+2026-11-04T10:17:37	with	mlx-community/Qwen3.6-35B-A3B-4bit	37	unsafe	unsafe	List(Task("a", 1)), List(Task("b", 1))	differ	233.9	/Users/sergiy/.okay-agent/journals/eqbench-1793781972977.jsonl
+2026-11-04T10:17:37	with	mlx-community/Qwen3.6-35B-A3B-4bit	38	unsafe	unsafe	":@@0//"	differ	247.5	/Users/sergiy/.okay-agent/journals/eqbench-1793782207537.jsonl
+2026-11-04T10:17:37	with	mlx-community/Qwen3.6-35B-A3B-4bit	39	safe	safe		-	213.4	/Users/sergiy/.okay-agent/journals/eqbench-1793782454622.jsonl
+2026-11-04T10:17:37	with	mlx-community/Qwen3.6-35B-A3B-4bit	40	safe	safe		-	147.5	/Users/sergiy/.okay-agent/journals/eqbench-1793782668154.jsonl
+2026-11-04T10:17:37	with	mlx-community/Qwen3.6-35B-A3B-4bit	41	safe	safe		-	117.4	/Users/sergiy/.okay-agent/journals/eqbench-1793782815724.jsonl
+2026-11-04T10:17:37	with	mlx-community/Qwen3.6-35B-A3B-4bit	42	safe	safe		-	799.2	/Users/sergiy/.okay-agent/journals/eqbench-1793782933347.jsonl
+2026-11-04T10:17:37	with	mlx-community/Qwen3.6-35B-A3B-4bit	43	unsafe	unsafe	(0, 0)	differ	82.1	/Users/sergiy/.okay-agent/journals/eqbench-1793783732800.jsonl

@@ -539,7 +539,8 @@ Each answer ~2 s (scala-cli compiles the harness).
 4. The equivalence benchmark (mutations of real code) and the demo on okay-agent — `bench/equivalence/README.md`.
    Done 2026-11-04 (first run): 43 cases; the tool 43 / 43 after two fixes it found; Qwen alone 41 / 43 (0 false safe, 2
    false unsafe), with `equivalent` 41 / 43 (0 false safe, 0 false unsafe, 2 timeouts) — too easy a corpus to show the
-   false-safe gap; a harder one next.
+   false-safe gap; a harder one next. Second run, the bench fixed: alone 42 / 43, with 42 / 43 — the one miss
+   with the tool its ergonomics (code passed for a name, a refusal read as "safe"; the refusal now says so).
 5. `type` (presentation compiler) and its benchmark; then effects.
 
 ## Where the general parts go
