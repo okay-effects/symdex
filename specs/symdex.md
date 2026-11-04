@@ -483,8 +483,19 @@ when); the exact part answers.
    difference found** — with what was covered (all inputs up to size k, N random). Refuses, saying why: a definition
    that is not a pure function of its parameters (reads mutable state, does I/O — by its SemanticDB references), a
    parameter type with no generator, a timeout.
-2. **`type(at | expr)`** — later. The type of an expression in context, the givens it resolves, the reduction of a
-   match type — from the Scala 3 presentation compiler on the source as it is now (no build needed).
+2. **`type(expr | code | at, in?)`** — the compiler's answer on the source as it is now, no build: Scala 3's
+   presentation compiler (`scala3-presentation-compiler`, the version symdex is built with; it reads older TASTy) over
+   the project's classpath (sbt-symdex's `symdex-classpath-compile.txt`), kept warm (the first answer ~1.5 s, then
+   ~0.1 s — measured on symdex itself, 2026-11-04).
+   - `expr`: an expression's TYPE in context — put in an object appended to the file of `in` (a definition's name or
+     a file; by default the file defining the expression's first name), its owner's members imported:
+     `Equivalence.verdict("x").map(_.equivalent): Either[String, Boolean]`; or the compiler's errors, as it gives
+     them: `value isRight is not a member of symdex.Equivalence.Verdict`.
+   - `code`: a whole definition checked the same way — "compiles", with its signature, or the errors (an agent's
+     answer checked in 0.1 s, not a build's seconds).
+   - `at`: `file:line:column` — the type and signature there (hover).
+   A new effect `Typer` (`Hover`, `Diagnose` — the classpath, a file and its text), its handler the compiler (one per
+   classpath), a fixed one in tests. Givens resolved and match types reduced: later, from the same compiler.
 3. **`behaviour`** — later, maybe merged into the two above: an expression's value on given inputs; a program over
    okay effects run under a handler with an observing interceptor (the operations performed, how often a continuation
    was resumed, the result).
