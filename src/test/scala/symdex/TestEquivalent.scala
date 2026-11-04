@@ -53,6 +53,10 @@ class TestEquivalent extends munit.FunSuite:
     assert(ask("Refactor.total").contains("no difference from HEAD found"))
     assert(ask("Refactor.total", "against" -> Json.Str("HEAD~1")).contains("NOT equivalent to HEAD~1"))
 
+  test("a sum type's generator: every case, the counterexample in the case that differs"):
+    val out = ask("Sizes.priceCapped", "against" -> Json.Str("Sizes.price"))
+    assert(out.contains("NOT equivalent") && out.contains("Custom("), out)
+
   test("refused, saying why: not pure, a class's member, no classpath; json as data"):
     assert(ask("Refactor.greet", "against" -> Json.Str("Refactor.greet")).contains("not a pure function"))
     assert(ask("Square.area").contains("member of a class"))

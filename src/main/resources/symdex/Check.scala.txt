@@ -63,6 +63,14 @@ object Gen:
     of(s => diagonal(fields.map(_.small(s - 1).take(4).toVector))
       .map(xs => m.fromProduct(Tuple.fromArray(xs.toArray.map(_.asInstanceOf[Object])))),
       (r, s) => m.fromProduct(Tuple.fromArray(fields.map(_.random(r, s).asInstanceOf[Object]).toArray)))
+  // enums and sealed traits: each case's small values in turn (round robin, so every case comes early), a random case
+  inline given derivedSum[A](using m: Mirror.SumOf[A]): Gen[A] =
+    val cases = gens[m.MirroredElemTypes]
+    of(s => roundRobin(cases.map(_.small(s).take(4))).map(_.asInstanceOf[A]),
+      (r, s) => cases(r.nextInt(cases.size)).random(r, s).asInstanceOf[A])
+  def roundRobin(xs: List[LazyList[Any]]): LazyList[Any] =
+    val live = xs.filter(_.nonEmpty)
+    if live.isEmpty then LazyList.empty else LazyList.from(live.map(_.head)) #::: roundRobin(live.map(_.tail))
   inline def gens[T <: Tuple]: List[Gen[Any]] = inline erasedValue[T] match
     case _: EmptyTuple => Nil
     case _: (h *: t) => summonInline[Gen[h]].asInstanceOf[Gen[Any]] :: gens[t]

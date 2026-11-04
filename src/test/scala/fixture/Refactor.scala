@@ -11,3 +11,18 @@ object Refactor:
   def firstBigStrict(lines: List[Line], min: Int): Option[String] =
     lines.filter(_.qty > min).headOption.map(_.sku)
   def greet(name: String): Unit = println(s"hi $name")
+
+/** a sum type: its generator derived case by case */
+enum Size:
+  case Small, Medium
+  case Custom(n: Int)
+
+object Sizes:
+  def price(s: Size): Int = s match
+    case Size.Small => 1
+    case Size.Medium => 2
+    case Size.Custom(n) => n
+  def priceCapped(s: Size): Int = s match
+    case Size.Small => 1
+    case Size.Medium => 2
+    case Size.Custom(n) => n min 10
