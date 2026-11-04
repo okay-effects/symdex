@@ -552,7 +552,9 @@ Each answer ~2 s (scala-cli compiles the harness).
    false unsafe), with `equivalent` 41 / 43 (0 false safe, 0 false unsafe, 2 timeouts) — too easy a corpus to show the
    false-safe gap; a harder one next. Second run, the bench fixed: alone 42 / 43, with 42 / 43 — the one miss
    with the tool its ergonomics (code passed for a name, a refusal read as "safe"; the refusal now says so).
-5. `type` (presentation compiler) and its benchmark; then effects.
+5. `type` (presentation compiler) and its benchmark; then effects. `type` done 2026-11-04: `TestType` on the fixtures (an expr's type, a
+   wrong one's error as the compiler gives it, a definition checked with its signature, the signature at a place);
+   ~0.1 s an answer once warm. Its benchmark next, beside okay-inlay's refine work.
 
 ## Where the general parts go
 
