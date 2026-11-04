@@ -79,6 +79,8 @@ object Gen:
   inline def auto[A]: Gen[A] = summonFrom {
     case m: Mirror.ProductOf[A] => derived[A](using m)
     case m: Mirror.SumOf[A] => derivedSum[A](using m)
+    // no mirror (a plain class, an open trait): no generator — a check needing it fails at its run, alone
+    case _ => null.asInstanceOf[Gen[A]]
   }
   def roundRobin(xs: List[LazyList[Any]]): LazyList[Any] =
     val live = xs.filter(_.nonEmpty)
