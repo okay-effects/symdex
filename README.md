@@ -52,6 +52,7 @@ release is made.
 | `outline` | a file's definitions, one line each: what is in it, without reading it |
 | `source` | one definition's text, not its file |
 | `more` | a page of an answer that was too long and was archived |
+| `ask` | a question in words — "who calls X?", «какие тесты покрывают X?» — read by an organ file (okay-desk) into a `query` |
 | `status` | the index's generation, age, coverage, and sources edited since compiled |
 
 Every answer has a size budget (8 000 characters by default). Over it, an

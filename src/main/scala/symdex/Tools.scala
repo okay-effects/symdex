@@ -1,6 +1,7 @@
 package symdex
 
 import okay.effects.json.Json
+import java.nio.file.Path
 import okay.mcp.ToolSpec
 import okay.scala3.*
 import okay.scala3.std.Clock
@@ -30,6 +31,82 @@ object Tools:
   }.getOrElse(default)
   private def need(a: Json, k: String): String =
     str(a, k).getOrElse(throw IllegalArgumentException(s"missing argument '$k'"))
+
+
+  // ---- ask: a question in words, read by an organ ---------------------------
+
+  /**
+   * A QUESTION IN WORDS (okay-desk specs/organs.md §9, BACKLOG 16: an organ as a portable file): "who calls
+   * Tables.join?", «какие тесты покрывают Bulk.joinSorted?» — the RELATION read by an organ, a rule set over the
+   * question's stems that okay-desk induced from pairs and compiled into a transformer block, kept as a file
+   * (`.symdex/organs/code.json` under the root, or `organ=<path>`): cues of stems present and absent → a relation.
+   * The evaluator here is a few lines; the law (in okay-desk's `OrganSuite`) is that the block, the interpreter and
+   * this file agree. The SYMBOL is the name written in the question, resolved by the index as every tool resolves
+   * it; two symbols of one name are asked back, never guessed. Then it is the `query` tool's goal.
+   */
+  private final case class Cue(words: Set[String], unless: Set[String], path: String, constructor: String)
+  private def cuesOf(text: String): Vector[Cue] =
+    def strs(j: Option[Json]) = j match { case Some(Json.Arr(xs)) => xs.collect { case Json.Str(s) => s }.toSet; case _ => Set.empty[String] }
+    def s(j: Option[Json]) = j match { case Some(Json.Str(x)) => x; case _ => "" }
+    Json.fromText(text).field("cues") match
+      case Some(Json.Arr(cs)) => cs.toVector.collect { case Json.Obj(fs) =>
+        val m = fs.toMap; Cue(strs(m.get("words")), strs(m.get("unless")), s(m.get("path")), s(m.get("constructor"))) }
+      case _ => Vector.empty
+  /** okay-desk's `Language.stem`: a short word whole, else the ending taken off — one letter, two past six letters for
+   * an inflected language (Cyrillic, Polish) */
+  private def stem(w: String): String =
+    val drop = if w.exists(c => c >= '\u0400' && c <= '\u04ff') || w.exists("ąęłńśźżć".contains(_)) then 2 else 1
+    if w.length <= 3 then w else w.dropRight(if w.length > 6 then drop else 1)
+  private def wordsOf(question: String): Set[String] =
+    question.toLowerCase.split("[^\\p{L}\\p{N}]+").filter(_.nonEmpty).map(stem).toSet
+  /** the relation the cues propose: exactly one, else none (two disagreeing cues are silence, as in the block) */
+  private def relationOf(cues: Vector[Cue], ws: Set[String]): Option[String] =
+    val said = cues.filter(c => c.path == "relation" && c.words.subsetOf(ws) && c.unless.forall(w => !ws.contains(w))).map(_.constructor).distinct
+    Option.when(said.size == 1)(said.head)
+  /** the built-in reader when there is no organ file: the relation's words, hand-written, the first that fires */
+  private val relationWords: Vector[(String, Vector[String])] = Vector(
+    "Tests" -> Vector("test", "suite", "тест", "сьют"),
+    "Affects" -> Vector("break", "affect", "impact", "depend", "слома", "влия", "затрон", "завис"),
+    "Implementers" -> Vector("implement", "subtype", "extends", "реализ", "наследник", "расширяет"),
+    "Up" -> Vector("override", "parent", "переопредел", "расшир", "родител", "чей"),
+    "DefinedIn" -> Vector("defined", "defines", "file", "location", "definition", "определ", "файл", "лежит"),
+    "Kind" -> Vector("kind", "class", "object", "класс", "объект", "рода"),
+    "Module" -> Vector("module", "модул"),
+    "Calls" -> Vector("does", "called from", "callee", "use", "вызывает", "вызывается из", "пользуется"),
+    "Callers" -> Vector("who calls", "what calls", "callers", "called", "кто", "откуда", "вызовы", "использует"))
+  private val goals: Map[String, String => String] = Map(
+    "Callers" -> (x => s"callers($x, Y)"), "Calls" -> (x => s"calls($x, B)"), "Implementers" -> (x => s"implementers($x, Y)"),
+    "Up" -> (x => s"up($x, B)"), "Affects" -> (x => s"affects($x, Y)"), "Tests" -> (x => s"tests_for($x, T)"),
+    "DefinedIn" -> (x => s"defined_in($x, F)"), "Kind" -> (x => s"kind($x, K)"), "Module" -> (x => s"in_module($x, M)"))
+  private val NameInQuestion = """(?<![\w.])([A-Z][\w]*(?:\.[\w]+)*)(?![\w.])""".r
+
+  def ask[R[_]: Has[Code] : Has[Clock]](a: Json): String ! R =
+    val question = need(a, "question")
+    generation[R].flatMap { (g, head) =>
+      Code.root[R].flatMap { root =>
+        val ix = g.index
+        val organPath = str(a, "organ").map(Path.of(_)).getOrElse(root.resolve(".symdex").resolve("organs").resolve("code.json"))
+        val cues = if java.nio.file.Files.exists(organPath) then cuesOf(java.nio.file.Files.readString(organPath)) else Vector.empty
+        val ws = wordsOf(question)
+        val byOrgan = relationOf(cues, ws)
+        val q = question.toLowerCase
+        val relation = byOrgan.orElse(relationWords.collectFirst { case (r, words) if words.exists(q.contains) => r })
+        // the names written in the question, the longest first; one symbol, or the candidates asked back
+        val names = NameInQuestion.findAllMatchIn(question).map(_.group(1)).toVector.distinct.sortBy(-_.length)
+        val resolved = names.map(n => n -> ix.resolve(n)).filter(_._2.nonEmpty)
+        (relation, resolved.headOption) match
+          case (None, _) => pure(s"$head\nnot sure what the question asks: name a relation — who calls, what calls, implements, overrides, " +
+            s"what breaks, which tests, where defined, what kind, which module (${if cues.isEmpty then "no organ file: the hand-written words" else s"the organ: ${cues.size} cues"})")
+          case (_, None) => pure(s"$head\nno symbol named in the question is in the index (write it as `Owner.name`)")
+          case (Some(_), Some((n, syms))) if syms.size > 1 =>
+            pure(s"$head\n'$n' names ${syms.size} symbols — which? " + syms.take(8).mkString(", "))
+          case (Some(r), Some((_, Vector(sym)))) =>
+            val goal = goals(r)("\"" + sym + "\"")
+            query[R](Json.obj("goal" -> Json.Str(goal), "limit" -> Json.Num(int(a, "limit", 100)), "why" -> Json.Bool(bool(a, "why"))))
+              .map(out => s"read as $r of $sym${if byOrgan.isDefined then " (by the organ)" else " (by the words)"}\n" + out)
+          case _ => pure(s"$head\nnot read")
+      }
+    }
 
   // ---- shared rendering --------------------------------------------------
 
@@ -878,6 +955,16 @@ object Tools:
         ("from", "integer", "first line, 1-based (default 1)"),
         ("lines", "integer", "how many lines (default 150)"), budget)("id"), Fit.Paged)(
       new Run { def apply[R[_]: Has[Code] : Has[Archive] : Has[Clock]](a: Json) = more[R](a) }),
+    tool("ask",
+      "A question about the code in words — \"who calls Tables.join?\", \"what breaks if I change Bulk.joinSorted\", " +
+        "«какие тесты покрывают X?» — read into a `query` goal: the relation by an organ (a rule set okay-desk induced " +
+        "from pairs; `.symdex/organs/code.json`, or `organ`) or by built-in words, the symbol by the name written. " +
+        "Two symbols of one name are asked back. Then the `query` tool's answer.",
+      schema(("question", "string", "the question, naming the symbol as `Owner.name`"),
+        ("organ", "string", "the organ file to read the relation with (default .symdex/organs/code.json)"),
+        ("why", "boolean", "the proof of the first answers"),
+        ("limit", "integer", "at most this many answers (default 100)"), budget)("question"), Fit.Compressed)(
+      new Run { def apply[R[_]: Has[Code] : Has[Archive] : Has[Clock]](a: Json) = ask[R](a) }),
     tool("status",
       "The index: its generation and age, what it covers, and which sources were edited since they were compiled.",
       schema()(), Fit.Compressed)(

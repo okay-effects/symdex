@@ -5,6 +5,14 @@ released as a zip on GitHub) and **sbt-symdex** (the sbt plugin, served from
 GitHub Pages). A plugin release names the symdex release it downloads;
 the plugin's own version may run ahead of it.
 
+## symdex (unreleased) — 2026-11-08
+
+- `ask`: a question about the code in words ("who calls Tables.join?", «какие тесты покрывают X?») read into a
+  `query` goal — the relation by an ORGAN file (`.symdex/organs/code.json`, or `organ=<path>`: a rule set over the
+  question's stems that okay-desk induced from pairs and compiled into a transformer block; symdex evaluates the
+  same cues itself, the law being that the two agree), else by built-in words; the symbol by the name written and
+  the index's resolver, two symbols of one name asked back. okay-desk docs/learning.md §4.
+
 ## symdex 0.7.1 — 2026-11-03
 
 - `query format=json`: the answers as data (`{"goal", "count", "answers"}`), no header, never compressed — for a
