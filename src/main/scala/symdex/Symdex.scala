@@ -42,8 +42,9 @@ object Symdex:
   final class Live(val root: Path, include: DbFile => Boolean = _ => true, recheckMillis: Long = 2000):
     val kept: Kept = Kept()
     val archive: Archive.Store = Archive.Store()
+    // a run of its own: a tool is called from inside the MCP server's running program (`runIsolated`)
     def run[A](p: A ! Asked): A =
-      okay.scala3.run(Clock.system(Tasty.query(Disk.real(Exec.real(Typer.compiler(Archive.memory(archive)(
+      okay.scala3.runIsolated(Clock.system(Tasty.query(Disk.real(Exec.real(Typer.compiler(Archive.memory(archive)(
         Code.compiled(root, kept, include, recheckMillis)(p))))))))
     /** a tool called: its answer, or why not */
     def call(name: String, args: Json): Either[String, String] =
